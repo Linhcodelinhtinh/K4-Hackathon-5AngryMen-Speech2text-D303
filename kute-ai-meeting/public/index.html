@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kute AI Meeting - Smart Meeting Notes Assistant</title>
+  <!-- Google Fonts & Marked Markdown Parser -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="bg-glow"></div>
+
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-badge">
+        <span class="sparkle">✨</span> AI Core Engine
+      </div>
+      <h1>Kute AI Meeting Notes</h1>
+      <p class="subtitle">Tự động chuyển đổi MP3 ghi âm cuộc họp $\rightarrow$ Speech-to-Text $\rightarrow$ Meeting Notes Markdown chuẩn hóa</p>
+    </header>
+
+    <main class="main-grid">
+      <!-- Left Column: Input Form -->
+      <section class="card input-card">
+        <h2>1. Tải lên File & Thiết lập</h2>
+
+        <!-- Drag & Drop Zone -->
+        <div class="drop-zone" id="dropZone">
+          <input type="file" id="audioFile" accept="audio/*" class="file-input">
+          <div class="drop-content" id="dropContent">
+            <div class="icon-upload">🎙️</div>
+            <p class="drop-title">Kéo & thả file ghi âm vào đây</p>
+            <p class="drop-sub">hoặc <span class="browse-btn">chọn file từ máy tính</span></p>
+            <span class="file-formats">Hỗ trợ MP3, M4A, WAV, OGG (Tối đa 50MB)</span>
+          </div>
+          <div class="file-info hidden" id="fileInfo">
+            <span class="file-icon">🎵</span>
+            <div class="file-details">
+              <span class="file-name" id="fileName">meeting.mp3</span>
+              <span class="file-size" id="fileSize">0 MB</span>
+            </div>
+            <button type="button" class="remove-file-btn" id="removeFileBtn">✕</button>
+          </div>
+        </div>
+
+        <!-- API Key Option -->
+        <div class="form-group">
+          <label for="apiKey">Groq API Key <span class="opt-tag">(Tùy chọn nếu chưa có trong .env)</span></label>
+          <input type="password" id="apiKey" placeholder="gsk_..." class="input-field">
+        </div>
+
+        <!-- Custom Prompt & Presets -->
+        <div class="form-group">
+          <div class="label-row">
+            <label for="customPrompt">Prompt Định Hướng LLM</label>
+            <span class="prompt-hint">Tùy chỉnh phong cách tóm tắt</span>
+          </div>
+
+          <div class="preset-chips">
+            <button type="button" class="chip active" data-preset="standard">🎯 Tiêu chuẩn</button>
+            <button type="button" class="chip" data-preset="action">✅ Tập trung Action Items</button>
+            <button type="button" class="chip" data-preset="tech">💻 Thuật ngữ Tech & RAG</button>
+            <button type="button" class="chip" data-preset="english">🇬🇧 Tóm tắt Tiếng Anh</button>
+          </div>
+
+          <textarea id="customPrompt" rows="6" class="textarea-field" placeholder="Nhập chỉ dẫn riêng cho LLM..."></textarea>
+        </div>
+
+        <!-- Process Button -->
+        <button id="processBtn" class="primary-btn" disabled>
+          <span class="btn-icon">⚡</span> Bắt đầu Xử lý Cuộc họp
+        </button>
+      </section>
+
+      <!-- Right Column: Status & Results -->
+      <section class="card output-card">
+        <div class="results-header">
+          <h2>2. Kết quả & Biên bản Cuộc họp</h2>
+          <div class="actions-group hidden" id="outputActions">
+            <button id="copyNotesBtn" class="sec-btn">📋 Copy Markdown</button>
+            <button id="downloadNotesBtn" class="sec-btn">📥 Tải file .md</button>
+          </div>
+        </div>
+
+        <!-- Processing State / Stepper -->
+        <div class="status-container hidden" id="statusContainer">
+          <div class="spinner"></div>
+          <div class="status-steps">
+            <div class="step" id="step1">
+              <span class="step-icon">📤</span>
+              <span class="step-text">Tải file ghi âm lên server...</span>
+            </div>
+            <div class="step" id="step2">
+              <span class="step-icon">🎙️</span>
+              <span class="step-text">Speech-to-Text (Whisper Large V3)...</span>
+            </div>
+            <div class="step" id="step3">
+              <span class="step-icon">🧠</span>
+              <span class="step-text">LLM Summarizing (Llama 3.3 70B)...</span>
+            </div>
+          </div>
+          <p class="elapsed-timer" id="elapsedTimer">Thời gian xử lý: 0s</p>
+        </div>
+
+        <!-- Initial Placeholder State -->
+        <div class="placeholder-state" id="placeholderState">
+          <div class="placeholder-icon">📋</div>
+          <p>Chưa có dữ liệu xử lý</p>
+          <span>Vui lòng chọn file MP3 và bấm <strong>Bắt đầu Xử lý Cuộc họp</strong></span>
+        </div>
+
+        <!-- Results Display -->
+        <div class="results-content hidden" id="resultsContent">
+          <div class="tabs-nav">
+            <button class="tab-btn active" data-tab="notesTab">📝 Meeting Notes</button>
+            <button class="tab-btn" data-tab="transcriptTab">📜 Raw Transcript</button>
+            <button class="tab-btn" data-tab="statsTab">📊 Thống kê</button>
+          </div>
+
+          <div class="tab-pane active" id="notesTab">
+            <div class="markdown-body" id="markdownViewer"></div>
+          </div>
+
+          <div class="tab-pane" id="transcriptTab">
+            <pre class="raw-transcript" id="transcriptViewer"></pre>
+          </div>
+
+          <div class="tab-pane" id="statsTab">
+            <div class="stats-grid" id="statsGrid">
+              <div class="stat-card">
+                <span class="stat-value" id="statTotalTime">0s</span>
+                <span class="stat-label">Tổng thời gian xử lý</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-value" id="statSTTTime">0s</span>
+                <span class="stat-label">Thời gian STT (Whisper)</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-value" id="statLLMTime">0s</span>
+                <span class="stat-label">Thời gian LLM (Llama)</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-value" id="statWordCount">0</span>
+                <span class="stat-label">Số từ transcript thô</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Kute AI Meeting Notes &bull; Powered by Groq Whisper Large V3 & Llama 3.3 70B &bull; Ready for Vercel</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

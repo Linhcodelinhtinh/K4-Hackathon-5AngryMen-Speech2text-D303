@@ -1,0 +1,17 @@
+Cuộc họp khởi động dự án Kute AI Meeting Assistant.
+Thời gian: 10:00 AM, 30/07/2026.
+Thành phần tham dự: Anh Tuấn (Project Owner), Chị Hoa (AI Engineer), Minh (Backend Developer).
+
+Anh Tuấn: Chào cả nhà, hôm nay chúng ta chốt phương án làm ứng dụng tóm tắt cuộc họp tự động từ file âm thanh MP3.
+Chị Hoa: Về phần Speech to Text, em đề xuất dùng Groq Whisper Large V3 để đạt tốc độ cao nhất và chi phí tối ưu. Nếu file âm thanh lớn hơn 24MB, em đã code phần tự động cắt file bằng pydub thành các đoạn 10 phút.
+Anh Tuấn: Nhất trí. Nhưng chú ý Whisper rất hay bị nói ngọng các từ tiếng Việt hoặc nhầm từ chuyên ngành AI như RAG thành "rác", API thành "áp pi", LLM thành "làm ma".
+Chị Hoa: Vâng anh, em sẽ thiết kế System Prompt cho Llama 3.3 70B Versatile để tự động sửa các lỗi chính tả này và trích xuất Action Items chuẩn xác dưới dạng bảng Markdown.
+Minh: Em sẽ nhận làm phần tích hợp Core Function này vào Discord Bot sau khi anh chị test xong main pipeline.
+
+Phân công công việc:
+1. Chị Hoa hoàn thiện stt_service.py và summarizer.py trước 17:00 ngày 01/08/2026.
+2. Anh Tuấn chuẩn bị 3-5 file MP3 thực tế có từ tiếng Việt lẫn thuật ngữ AI để test pipeline trước 12:00 ngày 02/08/2026.
+3. Bạn Minh bắt đầu ghép nối vào Discord Bot từ ngày 03/08/2026 và hoàn thành bản Demo trước 05/08/2026.
+
+Câu hỏi mở:
+Chúng ta có cần hỗ trợ xuất file kết quả ra Google Docs hoặc Notion không? Phần này tạm thời để sau khi làm xong bot Discord sẽ quyết định tiếp.
