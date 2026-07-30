@@ -71,11 +71,14 @@
           <textarea id="customPrompt" rows="6" class="textarea-field" placeholder="Nhập chỉ dẫn riêng cho LLM..."></textarea>
         </div>
 
-        <!-- Process Button -->
-        <button id="processBtn" class="primary-btn" disabled>
-          <span class="btn-icon">⚡</span> Bắt đầu Xử lý Cuộc họp
+       <div class="btn-group" style="display: flex; gap: 10px; margin-top: 15px;">
+        <button id="processBtn" class="primary-btn" disabled style="flex: 2;">
+          <span class="btn-icon">⚡</span> Full Pipeline
         </button>
-      </section>
+        <button id="transcribeOnlyBtn" class="sec-btn" disabled style="flex: 1;">
+          <span class="btn-icon">🎙️</span> Chỉ Transcribe
+        </button>
+        </div>
 
       <!-- Right Column: Status & Results -->
       <section class="card output-card">
@@ -127,7 +130,13 @@
           </div>
 
           <div class="tab-pane" id="transcriptTab">
-            <pre class="raw-transcript" id="transcriptViewer"></pre>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <span style="font-size: 0.85rem; color: #a0aec0;">💡 Bạn có thể chỉnh sửa nội dung bên dưới trước khi tóm tắt lại</span>
+              <button id="reSummarizeBtn" class="sec-btn" style="padding: 6px 12px; font-size: 0.85rem;">
+                🧠 Tóm tắt lại
+              </button>
+            </div>
+            <textarea class="raw-transcript" id="transcriptViewer" rows="15" style="width: 100%; border-radius: 8px; background: rgba(0,0,0,0.3); color: #e2e8f0; padding: 12px; font-family: monospace;"></textarea>
           </div>
 
           <div class="tab-pane" id="statsTab">

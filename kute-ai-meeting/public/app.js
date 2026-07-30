@@ -160,95 +160,177 @@ Structure required:
     });
   });
 
-  // Process Meeting Button Handler
   processBtn.addEventListener('click', async () => {
     if (!selectedFile) return;
-
-    // Reset view states
-    placeholderState.classList.add('hidden');
-    resultsContent.classList.add('hidden');
-    outputActions.classList.add('hidden');
-    statusContainer.classList.remove('hidden');
-    processBtn.disabled = true;
-
-    // Stepper state reset
-    step1.className = 'step active';
-    step2.className = 'step';
-    step3.className = 'step';
-
-    let seconds = 0;
-    elapsedTimer.textContent = `Thời gian xử lý: 0s`;
-    clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
-      seconds++;
-      elapsedTimer.textContent = `Thời gian xử lý: ${seconds}s`;
-    }, 1000);
+    startProcessingUI('all'); // Hàm helper ở dưới để reset UI gọn hơn
 
     const formData = new FormData();
     formData.append('audio_file', selectedFile);
     formData.append('custom_prompt', customPromptInput.value.trim());
-    if (apiKeyInput.value.trim()) {
-      formData.append('groq_api_key', apiKeyInput.value.trim());
-    }
+    if (apiKeyInput.value.trim()) formData.append('groq_api_key', apiKeyInput.value.trim());
 
     try {
-      // Step 1 -> Step 2
-      setTimeout(() => {
-        step1.className = 'step done';
-        step2.className = 'step active';
-      }, 800);
+      setTimeout(() => { step1.className = 'step done'; step2.className = 'step active'; }, 800);
 
-      const response = await fetch('/api/process', {
-        method: 'POST',
-        body: formData
-      });
+      const response = await fetch('/api/process', { method: 'POST', body: formData });
+      step2.className = 'step done'; step3.className = 'step active';
 
-      // Step 2 -> Step 3
-      step2.className = 'step done';
-      step3.className = 'step active';
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({ detail: 'Lỗi không xác định' }));
-        throw new Error(errData.detail || `Lỗi server: ${response.status}`);
-      }
-
+      if (!response.ok) throw new Error((await response.json().catch(()=>({}))).detail || `Lỗi: ${response.status}`);
       const data = await response.json();
-      clearInterval(timerInterval);
-
       step3.className = 'step done';
 
-      // Save global data
-      meetingNotesMarkdown = data.meeting_notes;
-      rawTranscriptText = data.raw_transcript;
-
-      // Render Markdown
-      markdownViewer.innerHTML = marked.parse(meetingNotesMarkdown);
-      transcriptViewer.textContent = rawTranscriptText;
-
-      // Render Stats
-      statTotalTime.textContent = `${data.total_time.toFixed(1)}s`;
-      statSTTTime.textContent = `${data.stt_time.toFixed(1)}s`;
-      statLLMTime.textContent = `${data.llm_time.toFixed(1)}s`;
-      const wordCount = rawTranscriptText.trim().split(/\s+/).length;
-      statWordCount.textContent = wordCount;
-
-      // Switch to results view
-      setTimeout(() => {
-        statusContainer.classList.add('hidden');
-        resultsContent.classList.remove('hidden');
-        outputActions.classList.remove('hidden');
-        processBtn.disabled = false;
-      }, 500);
+      // Lưu data & Render
+      saveAndRenderData(data);
+      finishProcessingUI();
+      reSummarizeBtn.disabled = false; // Bật nút Re-summarize sau khi có text
 
     } catch (err) {
-      clearInterval(timerInterval);
-      statusContainer.classList.add('hidden');
-      placeholderState.classList.remove('hidden');
-      processBtn.disabled = false;
-      alert(`❌ Đã xảy ra lỗi: ${err.message}`);
+      handleErrorUI(err);
     }
   });
 
+
+  transcribeOnlyBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+    startProcessingUI('stt_only');
+
+    const formData = new FormData();
+    formData.append('audio_file', selectedFile);
+    if (apiKeyInput.value.trim()) formData.append('groq_api_key', apiKeyInput.value.trim());
+
+    try {
+      setTimeout(() => { step1.className = 'step done'; step2.className = 'step active'; }, 800);
+
+      const response = await fetch('/api/transcribe', { method: 'POST', body: formData });
+      step2.className = 'step done';
+
+      if (!response.ok) throw new Error((await response.json().catch(()=>({}))).detail || `Lỗi: ${response.status}`);
+      const data = await response.json();
+
+      // Render Transcript
+      rawTranscriptText = data.raw_transcript;
+      transcriptViewer.textContent = rawTranscriptText;
+      
+      // Cập nhật stats STT
+      statSTTTime.textContent = `${data.stt_time.toFixed(1)}s`;
+      statWordCount.textContent = rawTranscriptText.trim().split(/\s+/).length;
+
+      finishProcessingUI();
+      
+      reSummarizeBtn.disabled = false;
+      switchToTab('transcript'); 
+
+    } catch (err) {
+      handleErrorUI(err);
+    }
+  });
+
+  reSummarizeBtn.addEventListener('click', async () => {
+    const currentTranscript = transcriptViewer.textContent.trim();
+    if (!currentTranscript) {
+      alert("Không có văn bản nào để tóm tắt!");
+      return;
+    }
+
+    startProcessingUI('llm_only');
+
+    const payload = {
+      transcript: currentTranscript,
+      custom_prompt: customPromptInput.value.trim(),
+      groq_api_key: apiKeyInput.value.trim()
+    };
+
+    try {
+      const response = await fetch('/api/summarize', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload) 
+      });
+
+      if (!response.ok) throw new Error((await response.json().catch(()=>({}))).detail || `Lỗi: ${response.status}`);
+      const data = await response.json();
+      step3.className = 'step done';
+
+      // Render Markdown
+      meetingNotesMarkdown = data.meeting_notes;
+      markdownViewer.innerHTML = marked.parse(meetingNotesMarkdown);
+      statLLMTime.textContent = `${data.llm_time.toFixed(1)}s`;
+
+      finishProcessingUI();
+      
+      switchToTab('notes'); 
+
+    } catch (err) {
+      handleErrorUI(err);
+    }
+  });
+
+function startProcessingUI(mode) {
+  placeholderState.classList.add('hidden');
+  resultsContent.classList.add('hidden');
+  outputActions.classList.add('hidden');
+  statusContainer.classList.remove('hidden');
+  
+  processBtn.disabled = true;
+  transcribeOnlyBtn.disabled = true;
+  reSummarizeBtn.disabled = true;
+
+  // Cài đặt Stepper tùy theo mode
+  step1.className = (mode === 'llm_only') ? 'step done' : 'step active';
+  step2.className = (mode === 'llm_only') ? 'step done' : 'step';
+  step3.className = (mode === 'llm_only') ? 'step active' : 'step';
+
+  let seconds = 0;
+  elapsedTimer.textContent = `Thời gian xử lý: 0s`;
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    seconds++;
+    elapsedTimer.textContent = `Thời gian xử lý: ${seconds}s`;
+  }, 1000);
+}
+
+function finishProcessingUI() {
+  clearInterval(timerInterval);
+  setTimeout(() => {
+    statusContainer.classList.add('hidden');
+    resultsContent.classList.remove('hidden');
+    outputActions.classList.remove('hidden');
+    processBtn.disabled = false;
+    transcribeOnlyBtn.disabled = false;
+    // reSummarizeBtn sẽ được enable thủ công ở logic từng nút
+  }, 500);
+}
+
+function handleErrorUI(err) {
+  clearInterval(timerInterval);
+  statusContainer.classList.add('hidden');
+  placeholderState.classList.remove('hidden');
+  processBtn.disabled = false;
+  transcribeOnlyBtn.disabled = false;
+  // Giữ nguyên trạng thái reSummarizeBtn (có thể nó đang được bật từ trước)
+  alert(`❌ Đã xảy ra lỗi: ${err.message}`);
+}
+
+function saveAndRenderData(data) {
+  meetingNotesMarkdown = data.meeting_notes;
+  rawTranscriptText = data.raw_transcript;
+  markdownViewer.innerHTML = marked.parse(meetingNotesMarkdown);
+  transcriptViewer.textContent = rawTranscriptText;
+  
+  statTotalTime.textContent = `${data.total_time.toFixed(1)}s`;
+  statSTTTime.textContent = `${data.stt_time.toFixed(1)}s`;
+  statLLMTime.textContent = `${data.llm_time.toFixed(1)}s`;
+  statWordCount.textContent = rawTranscriptText.trim().split(/\s+/).length;
+}
+
+// Giả định hàm chuyển tab (bạn cần sửa id cho khớp với mã HTML của bạn)
+function switchToTab(tabName) {
+  if (tabName === 'transcript') {
+    // Ví dụ: document.getElementById('tab-btn-transcript').click();
+  } else if (tabName === 'notes') {
+    // Ví dụ: document.getElementById('tab-btn-notes').click();
+  }
+}
   // Copy Markdown Button
   copyNotesBtn.addEventListener('click', () => {
     if (!meetingNotesMarkdown) return;
