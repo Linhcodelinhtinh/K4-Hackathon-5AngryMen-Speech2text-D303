@@ -31,20 +31,20 @@
 
         <!-- Drag & Drop Zone -->
         <div class="drop-zone" id="dropZone">
-          <input type="file" id="audioFile" accept="audio/*" class="file-input">
+          <input type="file" id="audioFile" accept="audio/*" class="file-input" multiple>
           <div class="drop-content" id="dropContent">
             <div class="icon-upload">🎙️</div>
             <p class="drop-title">Kéo & thả file ghi âm vào đây</p>
-            <p class="drop-sub">hoặc <span class="browse-btn">chọn file từ máy tính</span></p>
-            <span class="file-formats">Hỗ trợ MP3, M4A, WAV, OGG (Tối đa 50MB)</span>
+            <p class="drop-sub">hoặc <span class="browse-btn">chọn tối đa 5 file từ máy tính</span></p>
+            <span class="file-formats">Hỗ trợ MP3, M4A, WAV, OGG (Tối đa 5 file / Tổng &le; 300MB)</span>
           </div>
           <div class="file-info hidden" id="fileInfo">
-            <span class="file-icon">🎵</span>
-            <div class="file-details">
-              <span class="file-name" id="fileName">meeting.mp3</span>
-              <span class="file-size" id="fileSize">0 MB</span>
+            <div class="file-header-summary">
+              <span class="file-icon">🎵</span>
+              <span class="total-summary-text" id="totalSummaryText">0/5 file (0 MB / 300 MB)</span>
+              <button type="button" class="remove-all-btn" id="removeAllFilesBtn">Xóa tất cả</button>
             </div>
-            <button type="button" class="remove-file-btn" id="removeFileBtn">✕</button>
+            <div class="file-list-container" id="fileListContainer"></div>
           </div>
         </div>
 
@@ -139,11 +139,19 @@
           </div>
 
           <div class="tab-pane" id="transcriptTab">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <!-- Sub-Tabs Navigation for Multi-file Transcript -->
+            <div class="sub-tabs-container hidden" id="transcriptSubTabs"></div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
               <span style="font-size: 0.85rem; color: #a0aec0;">💡 Bạn có thể chỉnh sửa nội dung bên dưới trước khi tóm tắt lại</span>
-              <button id="reSummarizeBtn" class="sec-btn" style="padding: 6px 12px; font-size: 0.85rem;">
-                🧠 Tóm tắt lại
-              </button>
+              <div style="display: flex; gap: 8px;">
+                <button id="copySubTranscriptBtn" class="sec-btn" style="padding: 6px 12px; font-size: 0.85rem;">
+                  📋 Copy Text này
+                </button>
+                <button id="reSummarizeBtn" class="sec-btn" style="padding: 6px 12px; font-size: 0.85rem;">
+                  🧠 Tóm tắt lại
+                </button>
+              </div>
             </div>
             <textarea class="raw-transcript" id="transcriptViewer" rows="15" style="width: 100%; border-radius: 8px; background: rgba(0,0,0,0.3); color: #e2e8f0; padding: 12px; font-family: monospace;"></textarea>
           </div>

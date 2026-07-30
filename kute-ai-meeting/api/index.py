@@ -3,25 +3,30 @@ import sys
 import time
 import tempfile
 from pathlib import Path
+from typing import List, Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
+MAX_FILES_COUNT = 5
+MAX_TOTAL_SIZE_MB = 300
+MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024
+
 class SummarizeRequest(BaseModel):
     raw_transcript: str
-    custom_prompt: str = None
-    groq_api_key: str = None
+    custom_prompt: Optional[str] = None
+    groq_api_key: Optional[str] = None
 
 # Add parent directory to sys.path to import core modules
 BASE_DIR = Path(__file__).parent.parent.resolve()
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from stt_service import transcribe_audio_with_chunks, transcribe_audio
+from stt_service import transcribe_audio_with_chunks
 from summarizer import generate_summary, DEFAULT_MODEL, get_groq_client, SYSTEM_PROMPT
 
-app = FastAPI(title="Kute AI Meeting API", description="API Backend for Kute AI Meeting Notes with Map-Reduce Chunking")
+app = FastAPI(title="Kute AI Meeting API", description="API Backend for Kute AI Meeting Notes with Multi-File & Map-Reduce")
 
 def validate_groq_api_key(provided_key: str = None) -> str:
     if provided_key and provided_key.strip():
@@ -35,6 +40,32 @@ def validate_groq_api_key(provided_key: str = None) -> str:
             detail="Lỗi 400: 'Thiếu Groq API Key. Vui lòng nhập API Key trên giao diện Web hoặc tạo file .env!'"
         )
     return current_key
+
+def validate_audio_files(files: List[UploadFile]) -> float:
+    """Kiểm tra giới hạn tối đa 5 file và tổng dung lượng <= 300MB."""
+    if not files:
+        raise HTTPException(status_code=400, detail="Lỗi 400: 'Vui lòng chọn ít nhất 1 file ghi âm!'")
+    
+    if len(files) > MAX_FILES_COUNT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Lỗi 400: 'Chỉ được tải lên tối đa {MAX_FILES_COUNT} file ghi âm cùng lúc (Hiện tại: {len(files)} file)!'"
+        )
+    
+    total_bytes = 0
+    for f in files:
+        f.file.seek(0, 2)
+        total_bytes += f.file.tell()
+        f.file.seek(0)
+        
+    total_mb = total_bytes / (1024 * 1024)
+    if total_bytes > MAX_TOTAL_SIZE_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Lỗi 400: 'Tổng dung lượng các file vượt quá {MAX_TOTAL_SIZE_MB}MB (Hiện tại: {total_mb:.2f}MB)!'"
+        )
+    
+    return total_mb
 
 def parse_and_raise_error(e: Exception):
     if isinstance(e, HTTPException):
@@ -75,42 +106,66 @@ def parse_and_raise_error(e: Exception):
 
 @app.post("/api/transcribe")
 async def transcribe_endpoint(
-    audio_file: UploadFile = File(...),
-    groq_api_key: str = Form(None)
+    audio_files: List[UploadFile] = File(None),
+    audio_file: Optional[UploadFile] = File(None),
+    groq_api_key: Optional[str] = Form(None)
 ):
-    """Endpoint chỉ thực hiện Speech-to-Text từ Audio (Hỗ trợ song song chunks nếu file > 24MB)."""
+    """Endpoint Speech-to-Text hỗ trợ tối đa 5 file / max 300MB."""
     try:
         validate_groq_api_key(groq_api_key)
+        
+        files_to_process = audio_files or ([audio_file] if audio_file else [])
+        total_mb = validate_audio_files(files_to_process)
 
-        file_ext = Path(audio_file.filename).suffix or ".mp3"
-        with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp:
-            tmp_path = tmp.name
-            content = await audio_file.read()
-            tmp.write(content)
+        stt_start = time.time()
+        all_raw_transcripts = []
+        all_chunk_transcripts = []
+        files_detail = []
 
-        try:
-            stt_start = time.time()
-            stt_result = transcribe_audio_with_chunks(tmp_path)
-            stt_time = time.time() - stt_start
+        for idx, file_obj in enumerate(files_to_process):
+            file_ext = Path(file_obj.filename).suffix or ".mp3"
+            with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp:
+                tmp_path = tmp.name
+                content = await file_obj.read()
+                tmp.write(content)
 
-            return JSONResponse({
-                "success": True,
-                "filename": audio_file.filename,
-                "raw_transcript": stt_result["full_transcript"],
-                "chunk_transcripts": stt_result["chunk_transcripts"],
-                "chunk_count": len(stt_result["chunk_transcripts"]),
-                "stt_time": stt_time
-            })
-        finally:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+            try:
+                result = transcribe_audio_with_chunks(tmp_path)
+                header = f"=== FILE {idx+1}/{len(files_to_process)}: {file_obj.filename} ==="
+                file_text = f"{header}\n\n{result['full_transcript']}"
+                
+                all_raw_transcripts.append(file_text)
+                for c_idx, c_text in enumerate(result["chunk_transcripts"]):
+                    c_header = f"=== FILE {idx+1}/{len(files_to_process)}: {file_obj.filename} (Đoạn {c_idx+1}/{len(result['chunk_transcripts'])}) ==="
+                    all_chunk_transcripts.append(f"{c_header}\n\n{c_text}")
+
+                files_detail.append({
+                    "filename": file_obj.filename,
+                    "transcript": result["full_transcript"]
+                })
+            finally:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+
+        stt_time = time.time() - stt_start
+        full_transcript = "\n\n".join(all_raw_transcripts)
+
+        return JSONResponse({
+            "success": True,
+            "file_count": len(files_to_process),
+            "total_size_mb": round(total_mb, 2),
+            "raw_transcript": full_transcript,
+            "files_detail": files_detail,
+            "chunk_transcripts": all_chunk_transcripts,
+            "stt_time": stt_time
+        })
 
     except Exception as e:
         parse_and_raise_error(e)
 
 @app.post("/api/summarize")
 async def summarize_endpoint(req: SummarizeRequest):
-    """Endpoint chỉ thực hiện Tóm tắt từ Raw Transcript text (Tự động kích hoạt Map-Reduce nếu text dài)."""
+    """Endpoint Tóm tắt từ Raw Transcript text (Tự động kích hoạt Map-Reduce nếu text dài)."""
     try:
         validate_groq_api_key(req.groq_api_key)
 
@@ -131,54 +186,76 @@ async def summarize_endpoint(req: SummarizeRequest):
 
 @app.post("/api/process")
 async def process_meeting_endpoint(
-    audio_file: UploadFile = File(...),
-    custom_prompt: str = Form(None),
-    groq_api_key: str = Form(None)
+    audio_files: List[UploadFile] = File(None),
+    audio_file: Optional[UploadFile] = File(None),
+    custom_prompt: Optional[str] = Form(None),
+    groq_api_key: Optional[str] = Form(None)
 ):
     """
-    Endpoint Full Pipeline tối ưu file lớn:
-    Speech-to-Text Chunking + Map-Reduce LLM Summarizing
+    Endpoint Full Pipeline đa file (Tối đa 5 file / Max 300MB):
+    Parallel STT Chunking + Map-Reduce LLM Summarizing
     """
     try:
         validate_groq_api_key(groq_api_key)
 
-        file_ext = Path(audio_file.filename).suffix or ".mp3"
-        with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp:
-            tmp_path = tmp.name
-            content = await audio_file.read()
-            tmp.write(content)
+        files_to_process = audio_files or ([audio_file] if audio_file else [])
+        total_mb = validate_audio_files(files_to_process)
 
         start_total_time = time.time()
         
-        try:
-            # Bước 1: Transcribe Audio (Tự động chia chunk + xử lý song song nếu file > 24MB)
-            stt_start = time.time()
-            stt_result = transcribe_audio_with_chunks(tmp_path)
-            raw_transcript = stt_result["full_transcript"]
-            chunk_transcripts = stt_result["chunk_transcripts"]
-            stt_time = time.time() - stt_start
+        # Bước 1: STT Tất cả các file
+        stt_start = time.time()
+        all_raw_transcripts = []
+        all_chunk_transcripts = []
+        files_detail = []
 
-            # Bước 2: Tóm tắt thông minh bằng Map-Reduce Chunk Summarization
-            llm_start = time.time()
-            meeting_notes = generate_summary(chunk_transcripts, custom_prompt=custom_prompt)
-            llm_time = time.time() - llm_start
-            
-            total_time = time.time() - start_total_time
+        for idx, file_obj in enumerate(files_to_process):
+            file_ext = Path(file_obj.filename).suffix or ".mp3"
+            with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp:
+                tmp_path = tmp.name
+                content = await file_obj.read()
+                tmp.write(content)
 
-            return JSONResponse({
-                "success": True,
-                "filename": audio_file.filename,
-                "raw_transcript": raw_transcript,
-                "meeting_notes": meeting_notes,
-                "chunk_count": len(chunk_transcripts),
-                "stt_time": stt_time,
-                "llm_time": llm_time,
-                "total_time": total_time
-            })
+            try:
+                result = transcribe_audio_with_chunks(tmp_path)
+                header = f"=== FILE {idx+1}/{len(files_to_process)}: {file_obj.filename} ==="
+                file_text = f"{header}\n\n{result['full_transcript']}"
+                
+                all_raw_transcripts.append(file_text)
+                for c_idx, c_text in enumerate(result["chunk_transcripts"]):
+                    c_header = f"=== FILE {idx+1}/{len(files_to_process)}: {file_obj.filename} (Đoạn {c_idx+1}/{len(result['chunk_transcripts'])}) ==="
+                    all_chunk_transcripts.append(f"{c_header}\n\n{c_text}")
 
-        finally:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+                files_detail.append({
+                    "filename": file_obj.filename,
+                    "transcript": result["full_transcript"]
+                })
+            finally:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+
+        stt_time = time.time() - stt_start
+        full_transcript = "\n\n".join(all_raw_transcripts)
+
+        # Bước 2: Tóm tắt Map-Reduce song song các chunks của tất cả file
+        llm_start = time.time()
+        meeting_notes = generate_summary(all_chunk_transcripts, custom_prompt=custom_prompt)
+        llm_time = time.time() - llm_start
+        
+        total_time = time.time() - start_total_time
+
+        return JSONResponse({
+            "success": True,
+            "file_count": len(files_to_process),
+            "total_size_mb": round(total_mb, 2),
+            "raw_transcript": full_transcript,
+            "files_detail": files_detail,
+            "meeting_notes": meeting_notes,
+            "chunk_count": len(all_chunk_transcripts),
+            "stt_time": stt_time,
+            "llm_time": llm_time,
+            "total_time": total_time
+        })
 
     except Exception as e:
         parse_and_raise_error(e)

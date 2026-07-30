@@ -1,8 +1,11 @@
+# API Dependencies
 groq>=0.9.0
-pydub>=0.25.1
-static-ffmpeg>=2.5
-python-dotenv>=1.0.1
 openai>=1.30.0
+python-dotenv>=1.0.1
 fastapi>=0.110.0
 uvicorn>=0.28.0
 python-multipart>=0.0.9
+
+# Audio manipulation and large file handling (chunking)
+pydub>=0.25.1
+static-ffmpeg>=2.5
