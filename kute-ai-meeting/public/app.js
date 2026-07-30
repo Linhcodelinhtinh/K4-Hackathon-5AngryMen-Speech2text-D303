@@ -7,7 +7,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileName = document.getElementById('fileName');
   const fileSize = document.getElementById('fileSize');
   const removeFileBtn = document.getElementById('removeFileBtn');
+  
   const processBtn = document.getElementById('processBtn');
+  const transcribeOnlyBtn = document.getElementById('transcribeOnlyBtn');
+  const reSummarizeBtn = document.getElementById('reSummarizeBtn');
+
   const customPromptInput = document.getElementById('customPrompt');
   const apiKeyInput = document.getElementById('apiKey');
   const presetChips = document.querySelectorAll('.chip');
@@ -138,6 +142,7 @@ Structure required:
     dropContent.classList.add('hidden');
     fileInfo.classList.remove('hidden');
     processBtn.disabled = false;
+    if (transcribeOnlyBtn) transcribeOnlyBtn.disabled = false;
   }
 
   function resetFileSelection() {
@@ -146,6 +151,7 @@ Structure required:
     dropContent.classList.remove('hidden');
     fileInfo.classList.add('hidden');
     processBtn.disabled = true;
+    if (transcribeOnlyBtn) transcribeOnlyBtn.disabled = true;
   }
 
   // Tabs Navigation
@@ -160,9 +166,15 @@ Structure required:
     });
   });
 
+  function switchToTab(tabName) {
+    const targetTabBtn = document.querySelector(`.tab-btn[data-tab="${tabName}Tab"]`);
+    if (targetTabBtn) targetTabBtn.click();
+  }
+
+  // 1. Full Pipeline Button (Process both STT and LLM)
   processBtn.addEventListener('click', async () => {
     if (!selectedFile) return;
-    startProcessingUI('all'); // Hàm helper ở dưới để reset UI gọn hơn
+    startProcessingUI('all');
 
     const formData = new FormData();
     formData.append('audio_file', selectedFile);
@@ -179,158 +191,156 @@ Structure required:
       const data = await response.json();
       step3.className = 'step done';
 
-      // Lưu data & Render
       saveAndRenderData(data);
       finishProcessingUI();
-      reSummarizeBtn.disabled = false; // Bật nút Re-summarize sau khi có text
+      if (reSummarizeBtn) reSummarizeBtn.disabled = false;
+      switchToTab('notes');
 
     } catch (err) {
       handleErrorUI(err);
     }
   });
 
+  // 2. Transcribe Only Button (STT)
+  if (transcribeOnlyBtn) {
+    transcribeOnlyBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+      startProcessingUI('stt_only');
 
-  transcribeOnlyBtn.addEventListener('click', async () => {
-    if (!selectedFile) return;
-    startProcessingUI('stt_only');
+      const formData = new FormData();
+      formData.append('audio_file', selectedFile);
+      if (apiKeyInput.value.trim()) formData.append('groq_api_key', apiKeyInput.value.trim());
 
-    const formData = new FormData();
-    formData.append('audio_file', selectedFile);
-    if (apiKeyInput.value.trim()) formData.append('groq_api_key', apiKeyInput.value.trim());
+      try {
+        setTimeout(() => { step1.className = 'step done'; step2.className = 'step active'; }, 800);
 
-    try {
-      setTimeout(() => { step1.className = 'step done'; step2.className = 'step active'; }, 800);
+        const response = await fetch('/api/transcribe', { method: 'POST', body: formData });
+        step2.className = 'step done';
 
-      const response = await fetch('/api/transcribe', { method: 'POST', body: formData });
-      step2.className = 'step done';
+        if (!response.ok) throw new Error((await response.json().catch(()=>({}))).detail || `Lỗi: ${response.status}`);
+        const data = await response.json();
 
-      if (!response.ok) throw new Error((await response.json().catch(()=>({}))).detail || `Lỗi: ${response.status}`);
-      const data = await response.json();
+        rawTranscriptText = data.raw_transcript;
+        transcriptViewer.value = rawTranscriptText;
+        
+        statSTTTime.textContent = `${data.stt_time.toFixed(1)}s`;
+        statWordCount.textContent = rawTranscriptText.trim().split(/\s+/).length;
 
-      // Render Transcript
-      rawTranscriptText = data.raw_transcript;
-      transcriptViewer.textContent = rawTranscriptText;
-      
-      // Cập nhật stats STT
-      statSTTTime.textContent = `${data.stt_time.toFixed(1)}s`;
-      statWordCount.textContent = rawTranscriptText.trim().split(/\s+/).length;
+        finishProcessingUI();
+        if (reSummarizeBtn) reSummarizeBtn.disabled = false;
+        switchToTab('transcript'); 
 
-      finishProcessingUI();
-      
-      reSummarizeBtn.disabled = false;
-      switchToTab('transcript'); 
-
-    } catch (err) {
-      handleErrorUI(err);
-    }
-  });
-
-  reSummarizeBtn.addEventListener('click', async () => {
-    const currentTranscript = transcriptViewer.textContent.trim();
-    if (!currentTranscript) {
-      alert("Không có văn bản nào để tóm tắt!");
-      return;
-    }
-
-    startProcessingUI('llm_only');
-
-    const payload = {
-      transcript: currentTranscript,
-      custom_prompt: customPromptInput.value.trim(),
-      groq_api_key: apiKeyInput.value.trim()
-    };
-
-    try {
-      const response = await fetch('/api/summarize', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload) 
-      });
-
-      if (!response.ok) throw new Error((await response.json().catch(()=>({}))).detail || `Lỗi: ${response.status}`);
-      const data = await response.json();
-      step3.className = 'step done';
-
-      // Render Markdown
-      meetingNotesMarkdown = data.meeting_notes;
-      markdownViewer.innerHTML = marked.parse(meetingNotesMarkdown);
-      statLLMTime.textContent = `${data.llm_time.toFixed(1)}s`;
-
-      finishProcessingUI();
-      
-      switchToTab('notes'); 
-
-    } catch (err) {
-      handleErrorUI(err);
-    }
-  });
-
-function startProcessingUI(mode) {
-  placeholderState.classList.add('hidden');
-  resultsContent.classList.add('hidden');
-  outputActions.classList.add('hidden');
-  statusContainer.classList.remove('hidden');
-  
-  processBtn.disabled = true;
-  transcribeOnlyBtn.disabled = true;
-  reSummarizeBtn.disabled = true;
-
-  // Cài đặt Stepper tùy theo mode
-  step1.className = (mode === 'llm_only') ? 'step done' : 'step active';
-  step2.className = (mode === 'llm_only') ? 'step done' : 'step';
-  step3.className = (mode === 'llm_only') ? 'step active' : 'step';
-
-  let seconds = 0;
-  elapsedTimer.textContent = `Thời gian xử lý: 0s`;
-  clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    seconds++;
-    elapsedTimer.textContent = `Thời gian xử lý: ${seconds}s`;
-  }, 1000);
-}
-
-function finishProcessingUI() {
-  clearInterval(timerInterval);
-  setTimeout(() => {
-    statusContainer.classList.add('hidden');
-    resultsContent.classList.remove('hidden');
-    outputActions.classList.remove('hidden');
-    processBtn.disabled = false;
-    transcribeOnlyBtn.disabled = false;
-    // reSummarizeBtn sẽ được enable thủ công ở logic từng nút
-  }, 500);
-}
-
-function handleErrorUI(err) {
-  clearInterval(timerInterval);
-  statusContainer.classList.add('hidden');
-  placeholderState.classList.remove('hidden');
-  processBtn.disabled = false;
-  transcribeOnlyBtn.disabled = false;
-  // Giữ nguyên trạng thái reSummarizeBtn (có thể nó đang được bật từ trước)
-  alert(`❌ Đã xảy ra lỗi: ${err.message}`);
-}
-
-function saveAndRenderData(data) {
-  meetingNotesMarkdown = data.meeting_notes;
-  rawTranscriptText = data.raw_transcript;
-  markdownViewer.innerHTML = marked.parse(meetingNotesMarkdown);
-  transcriptViewer.textContent = rawTranscriptText;
-  
-  statTotalTime.textContent = `${data.total_time.toFixed(1)}s`;
-  statSTTTime.textContent = `${data.stt_time.toFixed(1)}s`;
-  statLLMTime.textContent = `${data.llm_time.toFixed(1)}s`;
-  statWordCount.textContent = rawTranscriptText.trim().split(/\s+/).length;
-}
-
-// Giả định hàm chuyển tab (bạn cần sửa id cho khớp với mã HTML của bạn)
-function switchToTab(tabName) {
-  if (tabName === 'transcript') {
-    // Ví dụ: document.getElementById('tab-btn-transcript').click();
-  } else if (tabName === 'notes') {
-    // Ví dụ: document.getElementById('tab-btn-notes').click();
+      } catch (err) {
+        handleErrorUI(err);
+      }
+    });
   }
-}
+
+  // 3. Re-Summarize Button (LLM only from transcriptViewer text)
+  if (reSummarizeBtn) {
+    reSummarizeBtn.addEventListener('click', async () => {
+      const currentTranscript = transcriptViewer.value ? transcriptViewer.value.trim() : transcriptViewer.textContent.trim();
+      if (!currentTranscript) {
+        alert("Không có văn bản nào để tóm tắt!");
+        return;
+      }
+
+      startProcessingUI('llm_only');
+
+      const payload = {
+        raw_transcript: currentTranscript,
+        custom_prompt: customPromptInput.value.trim(),
+        groq_api_key: apiKeyInput.value.trim()
+      };
+
+      try {
+        const response = await fetch('/api/summarize', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload) 
+        });
+
+        if (!response.ok) throw new Error((await response.json().catch(()=>({}))).detail || `Lỗi: ${response.status}`);
+        const data = await response.json();
+        step3.className = 'step done';
+
+        meetingNotesMarkdown = data.meeting_notes;
+        markdownViewer.innerHTML = marked.parse(meetingNotesMarkdown);
+        statLLMTime.textContent = `${data.llm_time.toFixed(1)}s`;
+
+        finishProcessingUI();
+        switchToTab('notes'); 
+
+      } catch (err) {
+        handleErrorUI(err);
+      }
+    });
+  }
+
+  // Enable reSummarizeBtn if user edits transcript manually
+  if (transcriptViewer) {
+    transcriptViewer.addEventListener('input', () => {
+      if (reSummarizeBtn) {
+        reSummarizeBtn.disabled = !transcriptViewer.value.trim();
+      }
+    });
+  }
+
+  function startProcessingUI(mode) {
+    placeholderState.classList.add('hidden');
+    resultsContent.classList.add('hidden');
+    outputActions.classList.add('hidden');
+    statusContainer.classList.remove('hidden');
+    
+    processBtn.disabled = true;
+    if (transcribeOnlyBtn) transcribeOnlyBtn.disabled = true;
+    if (reSummarizeBtn) reSummarizeBtn.disabled = true;
+
+    step1.className = (mode === 'llm_only') ? 'step done' : 'step active';
+    step2.className = (mode === 'llm_only') ? 'step done' : 'step';
+    step3.className = (mode === 'llm_only') ? 'step active' : 'step';
+
+    let seconds = 0;
+    elapsedTimer.textContent = `Thời gian xử lý: 0s`;
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      seconds++;
+      elapsedTimer.textContent = `Thời gian xử lý: ${seconds}s`;
+    }, 1000);
+  }
+
+  function finishProcessingUI() {
+    clearInterval(timerInterval);
+    setTimeout(() => {
+      statusContainer.classList.add('hidden');
+      resultsContent.classList.remove('hidden');
+      outputActions.classList.remove('hidden');
+      processBtn.disabled = false;
+      if (selectedFile && transcribeOnlyBtn) transcribeOnlyBtn.disabled = false;
+    }, 500);
+  }
+
+  function handleErrorUI(err) {
+    clearInterval(timerInterval);
+    statusContainer.classList.add('hidden');
+    placeholderState.classList.remove('hidden');
+    processBtn.disabled = false;
+    if (selectedFile && transcribeOnlyBtn) transcribeOnlyBtn.disabled = false;
+    alert(`❌ Đã xảy ra lỗi: ${err.message}`);
+  }
+
+  function saveAndRenderData(data) {
+    meetingNotesMarkdown = data.meeting_notes;
+    rawTranscriptText = data.raw_transcript;
+    markdownViewer.innerHTML = marked.parse(meetingNotesMarkdown);
+    transcriptViewer.value = rawTranscriptText;
+    
+    statTotalTime.textContent = `${data.total_time ? data.total_time.toFixed(1) : 0}s`;
+    statSTTTime.textContent = `${data.stt_time ? data.stt_time.toFixed(1) : 0}s`;
+    statLLMTime.textContent = `${data.llm_time ? data.llm_time.toFixed(1) : 0}s`;
+    statWordCount.textContent = rawTranscriptText.trim().split(/\s+/).length;
+  }
+
   // Copy Markdown Button
   copyNotesBtn.addEventListener('click', () => {
     if (!meetingNotesMarkdown) return;

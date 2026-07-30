@@ -28,21 +28,28 @@ async def transcribe_endpoint(
     audio_file: UploadFile = File(...),
     groq_api_key: str = Form(None)
 ):
+    """Endpoint chỉ thực hiện Speech-to-Text từ Audio."""
     if groq_api_key and groq_api_key.strip():
         os.environ["GROQ_API_KEY"] = groq_api_key.strip()
     
     current_key = os.getenv("GROQ_API_KEY")
     if not current_key or current_key == "your_groq_api_key_here":
-        raise HTTPException(status_code=400, detail="GROQ_API_KEY chưa được cấu hình!")
+        raise HTTPException(
+            status_code=400,
+            detail="GROQ_API_KEY chưa được cấu hình. Vui lòng nhập API Key trên giao diện Web hoặc tạo file .env!"
+        )
+
     file_ext = Path(audio_file.filename).suffix or ".mp3"
     with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp:
         tmp_path = tmp.name
         content = await audio_file.read()
         tmp.write(content)
+
     try:
         stt_start = time.time()
         raw_transcript = transcribe_audio(tmp_path)
         stt_time = time.time() - stt_start
+
         return JSONResponse({
             "success": True,
             "filename": audio_file.filename,
@@ -57,16 +64,23 @@ async def transcribe_endpoint(
 
 @app.post("/api/summarize")
 async def summarize_endpoint(req: SummarizeRequest):
+    """Endpoint chỉ thực hiện Tóm tắt từ Raw Transcript text."""
     if req.groq_api_key and req.groq_api_key.strip():
         os.environ["GROQ_API_KEY"] = req.groq_api_key.strip()
         
     current_key = os.getenv("GROQ_API_KEY")
     if not current_key or current_key == "your_groq_api_key_here":
-        raise HTTPException(status_code=400, detail="GROQ_API_KEY chưa được cấu hình!")
+        raise HTTPException(
+            status_code=400,
+            detail="GROQ_API_KEY chưa được cấu hình. Vui lòng nhập API Key trên giao diện Web hoặc tạo file .env!"
+        )
+
     if not req.raw_transcript or not req.raw_transcript.strip():
-        raise HTTPException(status_code=400, detail="Nội dung Raw Transcript trống!")
+        raise HTTPException(status_code=400, detail="Văn bản Transcript trống, không thể thực hiện tóm tắt!")
+
     try:
         llm_start = time.time()
+        
         if req.custom_prompt and req.custom_prompt.strip():
             client = get_groq_client()
             user_content = f"Dưới đây là bản transcript thô của cuộc họp:\n\n---\n{req.raw_transcript}\n---\n\nHãy tạo Meeting Notes theo đúng chỉ dẫn."
@@ -82,12 +96,81 @@ async def summarize_endpoint(req: SummarizeRequest):
             meeting_notes = response.choices[0].message.content.strip()
         else:
             meeting_notes = generate_summary(req.raw_transcript)
+
         llm_time = time.time() - llm_start
+
         return JSONResponse({
             "success": True,
             "meeting_notes": meeting_notes,
             "llm_time": llm_time
         })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/process")
+async def process_meeting_endpoint(
+    audio_file: UploadFile = File(...),
+    custom_prompt: str = Form(None),
+    groq_api_key: str = Form(None)
+):
+    """
+    Endpoint full pipeline: Speech-to-Text + Tóm tắt LLM
+    """
+    if groq_api_key and groq_api_key.strip():
+        os.environ["GROQ_API_KEY"] = groq_api_key.strip()
+    
+    current_key = os.getenv("GROQ_API_KEY")
+    if not current_key or current_key == "your_groq_api_key_here":
+        raise HTTPException(
+            status_code=400,
+            detail="GROQ_API_KEY chưa được cấu hình. Vui lòng nhập API Key trên giao diện Web hoặc tạo file .env!"
+        )
+
+    file_ext = Path(audio_file.filename).suffix or ".mp3"
+    with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp:
+        tmp_path = tmp.name
+        content = await audio_file.read()
+        tmp.write(content)
+
+    start_total_time = time.time()
+    
+    try:
+        # Bước 1: Transcribe
+        stt_start = time.time()
+        raw_transcript = transcribe_audio(tmp_path)
+        stt_time = time.time() - stt_start
+
+        # Bước 2: Tóm tắt
+        llm_start = time.time()
+        if custom_prompt and custom_prompt.strip():
+            client = get_groq_client()
+            user_content = f"Dưới đây là bản transcript thô của cuộc họp:\n\n---\n{raw_transcript}\n---\n\nHãy tạo Meeting Notes theo đúng chỉ dẫn."
+            response = client.chat.completions.create(
+                model=DEFAULT_MODEL,
+                messages=[
+                    {"role": "system", "content": custom_prompt.strip()},
+                    {"role": "user", "content": user_content}
+                ],
+                temperature=0.3,
+                max_tokens=4096
+            )
+            meeting_notes = response.choices[0].message.content.strip()
+        else:
+            meeting_notes = generate_summary(raw_transcript)
+
+        llm_time = time.time() - llm_start
+        total_time = time.time() - start_total_time
+
+        return JSONResponse({
+            "success": True,
+            "filename": audio_file.filename,
+            "raw_transcript": raw_transcript,
+            "meeting_notes": meeting_notes,
+            "stt_time": stt_time,
+            "llm_time": llm_time,
+            "total_time": total_time
+        })
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
