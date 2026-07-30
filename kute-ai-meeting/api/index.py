@@ -18,10 +18,10 @@ BASE_DIR = Path(__file__).parent.parent.resolve()
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from stt_service import transcribe_audio
+from stt_service import transcribe_audio_with_chunks, transcribe_audio
 from summarizer import generate_summary, DEFAULT_MODEL, get_groq_client, SYSTEM_PROMPT
 
-app = FastAPI(title="Kute AI Meeting API", description="API Backend for Kute AI Meeting Notes")
+app = FastAPI(title="Kute AI Meeting API", description="API Backend for Kute AI Meeting Notes with Map-Reduce Chunking")
 
 def validate_groq_api_key(provided_key: str = None) -> str:
     if provided_key and provided_key.strip():
@@ -78,7 +78,7 @@ async def transcribe_endpoint(
     audio_file: UploadFile = File(...),
     groq_api_key: str = Form(None)
 ):
-    """Endpoint chỉ thực hiện Speech-to-Text từ Audio."""
+    """Endpoint chỉ thực hiện Speech-to-Text từ Audio (Hỗ trợ song song chunks nếu file > 24MB)."""
     try:
         validate_groq_api_key(groq_api_key)
 
@@ -90,13 +90,15 @@ async def transcribe_endpoint(
 
         try:
             stt_start = time.time()
-            raw_transcript = transcribe_audio(tmp_path)
+            stt_result = transcribe_audio_with_chunks(tmp_path)
             stt_time = time.time() - stt_start
 
             return JSONResponse({
                 "success": True,
                 "filename": audio_file.filename,
-                "raw_transcript": raw_transcript,
+                "raw_transcript": stt_result["full_transcript"],
+                "chunk_transcripts": stt_result["chunk_transcripts"],
+                "chunk_count": len(stt_result["chunk_transcripts"]),
                 "stt_time": stt_time
             })
         finally:
@@ -108,7 +110,7 @@ async def transcribe_endpoint(
 
 @app.post("/api/summarize")
 async def summarize_endpoint(req: SummarizeRequest):
-    """Endpoint chỉ thực hiện Tóm tắt từ Raw Transcript text."""
+    """Endpoint chỉ thực hiện Tóm tắt từ Raw Transcript text (Tự động kích hoạt Map-Reduce nếu text dài)."""
     try:
         validate_groq_api_key(req.groq_api_key)
 
@@ -116,23 +118,7 @@ async def summarize_endpoint(req: SummarizeRequest):
             raise HTTPException(status_code=400, detail="Lỗi 400: 'Văn bản Transcript trống, không thể tóm tắt!'")
 
         llm_start = time.time()
-        
-        if req.custom_prompt and req.custom_prompt.strip():
-            client = get_groq_client()
-            user_content = f"Dưới đây là bản transcript thô của cuộc họp:\n\n---\n{req.raw_transcript}\n---\n\nHãy tạo Meeting Notes theo đúng chỉ dẫn."
-            response = client.chat.completions.create(
-                model=DEFAULT_MODEL,
-                messages=[
-                    {"role": "system", "content": req.custom_prompt.strip()},
-                    {"role": "user", "content": user_content}
-                ],
-                temperature=0.3,
-                max_tokens=4096
-            )
-            meeting_notes = response.choices[0].message.content.strip()
-        else:
-            meeting_notes = generate_summary(req.raw_transcript)
-
+        meeting_notes = generate_summary(req.raw_transcript, custom_prompt=req.custom_prompt)
         llm_time = time.time() - llm_start
 
         return JSONResponse({
@@ -149,7 +135,10 @@ async def process_meeting_endpoint(
     custom_prompt: str = Form(None),
     groq_api_key: str = Form(None)
 ):
-    """Endpoint full pipeline: Speech-to-Text + Tóm tắt LLM"""
+    """
+    Endpoint Full Pipeline tối ưu file lớn:
+    Speech-to-Text Chunking + Map-Reduce LLM Summarizing
+    """
     try:
         validate_groq_api_key(groq_api_key)
 
@@ -162,30 +151,18 @@ async def process_meeting_endpoint(
         start_total_time = time.time()
         
         try:
-            # Bước 1: Transcribe
+            # Bước 1: Transcribe Audio (Tự động chia chunk + xử lý song song nếu file > 24MB)
             stt_start = time.time()
-            raw_transcript = transcribe_audio(tmp_path)
+            stt_result = transcribe_audio_with_chunks(tmp_path)
+            raw_transcript = stt_result["full_transcript"]
+            chunk_transcripts = stt_result["chunk_transcripts"]
             stt_time = time.time() - stt_start
 
-            # Bước 2: Tóm tắt
+            # Bước 2: Tóm tắt thông minh bằng Map-Reduce Chunk Summarization
             llm_start = time.time()
-            if custom_prompt and custom_prompt.strip():
-                client = get_groq_client()
-                user_content = f"Dưới đây là bản transcript thô của cuộc họp:\n\n---\n{raw_transcript}\n---\n\nHãy tạo Meeting Notes theo đúng chỉ dẫn."
-                response = client.chat.completions.create(
-                    model=DEFAULT_MODEL,
-                    messages=[
-                        {"role": "system", "content": custom_prompt.strip()},
-                        {"role": "user", "content": user_content}
-                    ],
-                    temperature=0.3,
-                    max_tokens=4096
-                )
-                meeting_notes = response.choices[0].message.content.strip()
-            else:
-                meeting_notes = generate_summary(raw_transcript)
-
+            meeting_notes = generate_summary(chunk_transcripts, custom_prompt=custom_prompt)
             llm_time = time.time() - llm_start
+            
             total_time = time.time() - start_total_time
 
             return JSONResponse({
@@ -193,6 +170,7 @@ async def process_meeting_endpoint(
                 "filename": audio_file.filename,
                 "raw_transcript": raw_transcript,
                 "meeting_notes": meeting_notes,
+                "chunk_count": len(chunk_transcripts),
                 "stt_time": stt_time,
                 "llm_time": llm_time,
                 "total_time": total_time

@@ -2,20 +2,25 @@ import os
 import sys
 import math
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
 from groq import Groq
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-# Load environment variables from .env
-load_dotenv()
+# Automatically resolve FFmpeg binaries for Windows/Mac/Linux
+try:
+    import static_ffmpeg
+    static_ffmpeg.add_paths()
+except Exception as e:
+    print(f"⚠️ static_ffmpeg warning: {e}")
 
 MAX_FILE_SIZE_MB = 24
 
 def get_groq_client() -> Groq:
     api_key = os.getenv("GROQ_API_KEY")
-    if not api_key or api_key == "your_groq_api_key_here":
+    if not api_key or api_key.strip() in ["", "your_groq_api_key_here", "gsk_your_groq_api_key_here"]:
         raise ValueError("GROQ_API_KEY chưa được cấu hình. Vui lòng cập nhật file .env!")
     return Groq(api_key=api_key)
 
@@ -37,10 +42,11 @@ def _transcribe_single_file(client: Groq, file_path: str, model_name: str = "whi
             return response.text
         return str(response)
 
-def transcribe_audio(audio_path: str, model_name: str = "whisper-large-v3", language: str = None) -> str:
+def transcribe_audio_with_chunks(audio_path: str, model_name: str = "whisper-large-v3", language: str = None) -> dict:
     """
     Thực hiện Speech-to-Text cho file âm thanh MP3.
-    Tự động chia nhỏ file nếu kích thước vượt quá 24MB.
+    Nếu file > 24MB, tự động chia cắt thành các đoạn 10 phút,
+    transcribe song song và trả về cả full_transcript và danh sách chunk_transcripts.
     """
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"Không tìm thấy file ghi âm: {audio_path}")
@@ -54,11 +60,14 @@ def transcribe_audio(audio_path: str, model_name: str = "whisper-large-v3", lang
     # Trường hợp 1: File <= 24MB, gửi trực tiếp
     if file_size_mb <= MAX_FILE_SIZE_MB:
         print("⚡ File ≤ 24MB, gửi trực tiếp đến Groq Whisper API...")
-        transcript = _transcribe_single_file(client, audio_path, model_name, language)
-        return transcript.strip()
+        transcript = _transcribe_single_file(client, audio_path, model_name, language).strip()
+        return {
+            "full_transcript": transcript,
+            "chunk_transcripts": [transcript]
+        }
 
-    # Trường hợp 2: File > 24MB, chia nhỏ bằng pydub
-    print(f"📦 File > {MAX_FILE_SIZE_MB}MB. Tiến hành chia cắt file âm thanh thành các đoạn 10 phút...")
+    # Trường hợp 2: File > 24MB, chia nhỏ và xử lý song song với pydub
+    print(f"📦 File > {MAX_FILE_SIZE_MB}MB. Chia cắt âm thanh thành các đoạn 10 phút và transcribe song song...")
     try:
         from pydub import AudioSegment
     except ImportError:
@@ -75,37 +84,59 @@ def transcribe_audio(audio_path: str, model_name: str = "whisper-large-v3", lang
     
     print(f"🧩 Tổng thời lượng: {total_length_ms / 1000 / 60:.2f} phút. Chia thành {total_chunks} đoạn.")
     
-    transcripts = []
+    # Cắt file âm thanh thành các temporary files
+    temp_chunk_files = []
     for index in range(total_chunks):
         start_ms = index * chunk_length_ms
         end_ms = min((index + 1) * chunk_length_ms, total_length_ms)
         chunk_sound = sound[start_ms:end_ms]
         
-        # Lưu temporary chunk file
-        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_file:
-            tmp_path = tmp_file.name
+        tmp_file = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        tmp_path = tmp_file.name
+        tmp_file.close()
         
-        try:
-            print(f"⏳ Đang xử lý chunk {index + 1}/{total_chunks} (từ {start_ms/1000:.0f}s đến {end_ms/1000:.0f}s)...")
-            chunk_sound.export(tmp_path, format="mp3")
-            chunk_text = _transcribe_single_file(client, tmp_path, model_name, language)
-            if chunk_text:
-                transcripts.append(chunk_text.strip())
-        finally:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+        chunk_sound.export(tmp_path, format="mp3")
+        temp_chunk_files.append((index, tmp_path))
 
-    full_transcript = "\n\n".join(transcripts)
-    return full_transcript.strip()
+    chunk_transcripts = [None] * total_chunks
+
+    def _process_chunk_file(idx: int, path: str) -> tuple[int, str]:
+        try:
+            print(f"⏳ Đang transcribe chunk {idx + 1}/{total_chunks}...")
+            text = _transcribe_single_file(client, path, model_name, language)
+            return idx, text.strip()
+        finally:
+            if os.path.exists(path):
+                os.remove(path)
+
+    # Chạy song song Whisper API cho các chunk với ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=min(3, total_chunks)) as executor:
+        futures = [executor.submit(_process_chunk_file, idx, path) for idx, path in temp_chunk_files]
+        for future in as_completed(futures):
+            idx, text = future.result()
+            chunk_transcripts[idx] = text
+            print(f"✅ Hoàn tất Transcribe đoạn {idx + 1}/{total_chunks}")
+
+    full_transcript = "\n\n".join(chunk_transcripts).strip()
+    return {
+        "full_transcript": full_transcript,
+        "chunk_transcripts": chunk_transcripts
+    }
+
+def transcribe_audio(audio_path: str, model_name: str = "whisper-large-v3", language: str = None) -> str:
+    """Hàm wrapper tương thích ngược, trả về chuỗi full_transcript."""
+    result = transcribe_audio_with_chunks(audio_path, model_name, language)
+    return result["full_transcript"]
 
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1:
         file_arg = sys.argv[1]
         try:
-            res = transcribe_audio(file_arg)
-            print("\n--- TRANSCRIPT RESULT ---")
-            print(res[:500] + ("..." if len(res) > 500 else ""))
+            res = transcribe_audio_with_chunks(file_arg)
+            print("\n--- FULL TRANSCRIPT RESULT ---")
+            print(res["full_transcript"][:500] + ("..." if len(res["full_transcript"]) > 500 else ""))
+            print(f"\n🧩 Tổng số chunks: {len(res['chunk_transcripts'])}")
         except Exception as err:
             print(f"❌ Lỗi: {err}")
     else:
