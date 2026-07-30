@@ -21,6 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const resultsContent = document.getElementById('resultsContent');
   const outputActions = document.getElementById('outputActions');
   const elapsedTimer = document.getElementById('elapsedTimer');
+  const errorBanner = document.getElementById('errorBanner');
+  const errorTitle = document.getElementById('errorTitle');
+  const errorDetail = document.getElementById('errorDetail');
   
   const step1 = document.getElementById('step1');
   const step2 = document.getElementById('step2');
@@ -187,7 +190,11 @@ Structure required:
       const response = await fetch('/api/process', { method: 'POST', body: formData });
       step2.className = 'step done'; step3.className = 'step active';
 
-      if (!response.ok) throw new Error((await response.json().catch(()=>({}))).detail || `Lỗi: ${response.status}`);
+      if (!response.ok) {
+        const errData = await response.json().catch(()=>({ detail: `Lỗi HTTP ${response.status}` }));
+        throw { status: response.status, detail: errData.detail || `Lỗi ${response.status}: Server Error` };
+      }
+
       const data = await response.json();
       step3.className = 'step done';
 
@@ -217,7 +224,11 @@ Structure required:
         const response = await fetch('/api/transcribe', { method: 'POST', body: formData });
         step2.className = 'step done';
 
-        if (!response.ok) throw new Error((await response.json().catch(()=>({}))).detail || `Lỗi: ${response.status}`);
+        if (!response.ok) {
+          const errData = await response.json().catch(()=>({ detail: `Lỗi HTTP ${response.status}` }));
+          throw { status: response.status, detail: errData.detail || `Lỗi ${response.status}: Server Error` };
+        }
+
         const data = await response.json();
 
         rawTranscriptText = data.raw_transcript;
@@ -241,7 +252,7 @@ Structure required:
     reSummarizeBtn.addEventListener('click', async () => {
       const currentTranscript = transcriptViewer.value ? transcriptViewer.value.trim() : transcriptViewer.textContent.trim();
       if (!currentTranscript) {
-        alert("Không có văn bản nào để tóm tắt!");
+        handleErrorUI({ status: 400, detail: "Lỗi 400: 'Không có văn bản Transcript để tóm tắt!'" });
         return;
       }
 
@@ -260,7 +271,11 @@ Structure required:
           body: JSON.stringify(payload) 
         });
 
-        if (!response.ok) throw new Error((await response.json().catch(()=>({}))).detail || `Lỗi: ${response.status}`);
+        if (!response.ok) {
+          const errData = await response.json().catch(()=>({ detail: `Lỗi HTTP ${response.status}` }));
+          throw { status: response.status, detail: errData.detail || `Lỗi ${response.status}: Server Error` };
+        }
+
         const data = await response.json();
         step3.className = 'step done';
 
@@ -277,7 +292,6 @@ Structure required:
     });
   }
 
-  // Enable reSummarizeBtn if user edits transcript manually
   if (transcriptViewer) {
     transcriptViewer.addEventListener('input', () => {
       if (reSummarizeBtn) {
@@ -287,6 +301,7 @@ Structure required:
   }
 
   function startProcessingUI(mode) {
+    if (errorBanner) errorBanner.classList.add('hidden');
     placeholderState.classList.add('hidden');
     resultsContent.classList.add('hidden');
     outputActions.classList.add('hidden');
@@ -313,6 +328,7 @@ Structure required:
     clearInterval(timerInterval);
     setTimeout(() => {
       statusContainer.classList.add('hidden');
+      if (errorBanner) errorBanner.classList.add('hidden');
       resultsContent.classList.remove('hidden');
       outputActions.classList.remove('hidden');
       processBtn.disabled = false;
@@ -323,10 +339,26 @@ Structure required:
   function handleErrorUI(err) {
     clearInterval(timerInterval);
     statusContainer.classList.add('hidden');
-    placeholderState.classList.remove('hidden');
+    placeholderState.classList.add('hidden');
+    resultsContent.classList.add('hidden');
+    
+    let detailMsg = (typeof err === 'object' && err.detail) ? err.detail : (err.message || String(err));
+    let status = (typeof err === 'object' && err.status) ? err.status : 500;
+
+    if (!detailMsg.startsWith('Lỗi ')) {
+      detailMsg = `Lỗi ${status}: "${detailMsg}"`;
+    }
+
+    if (errorBanner && errorTitle && errorDetail) {
+      errorTitle.textContent = detailMsg;
+      errorDetail.textContent = "Vui lòng kiểm tra lại Groq API Key (trên ô nhập liệu UI hoặc file .env), kết nối mạng hoặc định dạng file ghi âm.";
+      errorBanner.classList.remove('hidden');
+    } else {
+      alert(`❌ ${detailMsg}`);
+    }
+
     processBtn.disabled = false;
     if (selectedFile && transcribeOnlyBtn) transcribeOnlyBtn.disabled = false;
-    alert(`❌ Đã xảy ra lỗi: ${err.message}`);
   }
 
   function saveAndRenderData(data) {

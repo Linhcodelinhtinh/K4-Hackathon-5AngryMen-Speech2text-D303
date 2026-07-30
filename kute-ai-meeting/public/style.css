@@ -552,6 +552,34 @@ label {
   color: #6B7280;
 }
 
+/* Error Banner Display */
+.error-banner {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  color: #FCA5A5;
+  animation: fadeIn 0.3s ease;
+}
+
+.error-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #EF4444;
+  margin-bottom: 0.35rem;
+}
+
+.error-detail-text {
+  font-size: 0.9rem;
+  color: #FECACA;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
 .hidden {
   display: none !important;
 }
