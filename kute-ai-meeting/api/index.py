@@ -16,6 +16,9 @@ MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024
 class SummarizeRequest(BaseModel):
     raw_transcript: str
     custom_prompt: Optional[str] = None
+    provider: Optional[str] = "groq"
+    model_name: Optional[str] = None
+    provider_api_key: Optional[str] = None
     groq_api_key: Optional[str] = None
 
 # Add parent directory to sys.path to import core modules
@@ -24,22 +27,12 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 from stt_service import transcribe_audio_with_chunks
-from summarizer import generate_summary, DEFAULT_MODEL, get_groq_client, SYSTEM_PROMPT
+from summarizer import generate_summary, DEFAULT_MODEL, get_provider_api_key, SYSTEM_PROMPT
 
-app = FastAPI(title="Kute AI Meeting API", description="API Backend for Kute AI Meeting Notes with Multi-File & Map-Reduce")
+app = FastAPI(title="Kute AI Meeting API", description="API Backend for Kute AI Meeting Notes with Multi-File & Multi-Provider")
 
-def validate_groq_api_key(provided_key: str = None) -> str:
-    if provided_key and provided_key.strip():
-        os.environ["GROQ_API_KEY"] = provided_key.strip()
-        return provided_key.strip()
-    
-    current_key = os.getenv("GROQ_API_KEY")
-    if not current_key or current_key.strip() in ["", "your_groq_api_key_here", "gsk_your_groq_api_key_here"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Lỗi 400: 'Thiếu Groq API Key. Vui lòng nhập API Key trên giao diện Web hoặc tạo file .env!'"
-        )
-    return current_key
+def validate_llm_api_key(provider: str = "groq", provided_key: str = None) -> str:
+    return get_provider_api_key(provider, provided_key)
 
 def validate_audio_files(files: List[UploadFile]) -> float:
     """Kiểm tra giới hạn tối đa 5 file và tổng dung lượng <= 300MB."""
@@ -73,20 +66,20 @@ def parse_and_raise_error(e: Exception):
     err_str = str(e)
     err_type = type(e).__name__
 
-    if "GROQ_API_KEY" in err_str or "api_key" in err_str.lower() or isinstance(e, ValueError):
+    if "API_KEY" in err_str or "api_key" in err_str.lower() or isinstance(e, ValueError):
         raise HTTPException(
             status_code=400,
-            detail="Lỗi 400: 'Thiếu hoặc sai cấu hình Groq API Key. Vui lòng kiểm tra lại API Key!'"
+            detail=f"Lỗi 400: '{err_str}'"
         )
     elif "AuthenticationError" in err_type or "401" in err_str or "Invalid API Key" in err_str or "invalid_api_key" in err_str.lower():
         raise HTTPException(
             status_code=401,
-            detail="Lỗi 401: 'Groq API Key không hợp lệ hoặc hết hạn. Vui lòng kiểm tra lại Key!'"
+            detail="Lỗi 401: 'API Key không hợp lệ hoặc hết hạn. Vui lòng kiểm tra lại Key!'"
         )
     elif "RateLimitError" in err_type or "429" in err_str or "rate_limit" in err_str.lower():
         raise HTTPException(
             status_code=429,
-            detail="Lỗi 429: 'Quá giới hạn số lượng request Groq API (Rate Limit). Thử lại sau ít phút!'"
+            detail="Lỗi 429: 'Quá giới hạn số lượng request API (Rate Limit). Thử lại sau ít phút!'"
         )
     elif "pydub" in err_str.lower() or "ffmpeg" in err_str.lower() or "AudioSegment" in err_str:
         raise HTTPException(
@@ -108,11 +101,14 @@ def parse_and_raise_error(e: Exception):
 async def transcribe_endpoint(
     audio_files: List[UploadFile] = File(None),
     audio_file: Optional[UploadFile] = File(None),
+    provider: Optional[str] = Form("groq"),
+    provider_api_key: Optional[str] = Form(None),
     groq_api_key: Optional[str] = Form(None)
 ):
     """Endpoint Speech-to-Text hỗ trợ tối đa 5 file / max 300MB."""
     try:
-        validate_groq_api_key(groq_api_key)
+        api_key = provider_api_key or groq_api_key
+        validate_llm_api_key("groq", api_key)
         
         files_to_process = audio_files or ([audio_file] if audio_file else [])
         total_mb = validate_audio_files(files_to_process)
@@ -167,13 +163,21 @@ async def transcribe_endpoint(
 async def summarize_endpoint(req: SummarizeRequest):
     """Endpoint Tóm tắt từ Raw Transcript text (Tự động kích hoạt Map-Reduce nếu text dài)."""
     try:
-        validate_groq_api_key(req.groq_api_key)
+        p = req.provider or "groq"
+        api_key = req.provider_api_key or req.groq_api_key
+        validate_llm_api_key(p, api_key)
 
         if not req.raw_transcript or not req.raw_transcript.strip():
             raise HTTPException(status_code=400, detail="Lỗi 400: 'Văn bản Transcript trống, không thể tóm tắt!'")
 
         llm_start = time.time()
-        meeting_notes = generate_summary(req.raw_transcript, custom_prompt=req.custom_prompt)
+        meeting_notes = generate_summary(
+            req.raw_transcript,
+            custom_prompt=req.custom_prompt,
+            model_name=req.model_name,
+            provider=p,
+            provider_api_key=api_key
+        )
         llm_time = time.time() - llm_start
 
         return JSONResponse({
@@ -189,6 +193,9 @@ async def process_meeting_endpoint(
     audio_files: List[UploadFile] = File(None),
     audio_file: Optional[UploadFile] = File(None),
     custom_prompt: Optional[str] = Form(None),
+    provider: Optional[str] = Form("groq"),
+    model_name: Optional[str] = Form(None),
+    provider_api_key: Optional[str] = Form(None),
     groq_api_key: Optional[str] = Form(None)
 ):
     """
@@ -196,7 +203,10 @@ async def process_meeting_endpoint(
     Parallel STT Chunking + Map-Reduce LLM Summarizing
     """
     try:
-        validate_groq_api_key(groq_api_key)
+        p = provider or "groq"
+        api_key = provider_api_key or groq_api_key
+        validate_llm_api_key("groq", api_key if p == "groq" else None) # Groq always needed for Whisper STT
+        validate_llm_api_key(p, api_key)
 
         files_to_process = audio_files or ([audio_file] if audio_file else [])
         total_mb = validate_audio_files(files_to_process)
@@ -237,9 +247,15 @@ async def process_meeting_endpoint(
         stt_time = time.time() - stt_start
         full_transcript = "\n\n".join(all_raw_transcripts)
 
-        # Bước 2: Tóm tắt Map-Reduce song song các chunks của tất cả file
+        # Bước 2: Tóm tắt Map-Reduce song song các chunks của tất cả file qua Provider đã chọn
         llm_start = time.time()
-        meeting_notes = generate_summary(all_chunk_transcripts, custom_prompt=custom_prompt)
+        meeting_notes = generate_summary(
+            all_chunk_transcripts,
+            custom_prompt=custom_prompt,
+            model_name=model_name,
+            provider=p,
+            provider_api_key=api_key
+        )
         llm_time = time.time() - llm_start
         
         total_time = time.time() - start_total_time

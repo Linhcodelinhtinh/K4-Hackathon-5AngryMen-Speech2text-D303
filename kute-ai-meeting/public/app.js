@@ -307,6 +307,57 @@ Structure required:
     if (targetTabBtn) targetTabBtn.click();
   }
 
+  const providerSelect = document.getElementById('providerSelect');
+  const modelSelect = document.getElementById('modelSelect');
+  const apiKeyLabel = document.getElementById('apiKeyLabel');
+
+  const PROVIDER_MODELS_UI = {
+    groq: [
+      { val: 'llama-3.3-70b-versatile', text: 'llama-3.3-70b-versatile (Khuyên dùng)' },
+      { val: 'llama-3.1-8b-instant', text: 'llama-3.1-8b-instant' },
+      { val: 'mixtral-8x7b-32768', text: 'mixtral-8x7b-32768' }
+    ],
+    openrouter: [
+      { val: 'meta-llama/llama-3.3-70b-instruct', text: 'meta-llama/llama-3.3-70b-instruct' },
+      { val: 'anthropic/claude-3.5-sonnet', text: 'anthropic/claude-3.5-sonnet' },
+      { val: 'deepseek/deepseek-r1', text: 'deepseek/deepseek-r1' },
+      { val: 'google/gemini-2.0-flash-001', text: 'google/gemini-2.0-flash-001' }
+    ],
+    gemini: [
+      { val: 'gemini-2.5-flash', text: 'gemini-2.5-flash (Khuyên dùng)' },
+      { val: 'gemini-1.5-flash', text: 'gemini-1.5-flash' },
+      { val: 'gemini-2.5-pro', text: 'gemini-2.5-pro' },
+      { val: 'gemini-1.5-pro', text: 'gemini-1.5-pro' }
+    ]
+  };
+
+  if (providerSelect && modelSelect) {
+    providerSelect.addEventListener('change', () => {
+      const provider = providerSelect.value;
+      const models = PROVIDER_MODELS_UI[provider] || PROVIDER_MODELS_UI.groq;
+      modelSelect.innerHTML = '';
+      models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.val;
+        opt.textContent = m.text;
+        modelSelect.appendChild(opt);
+      });
+
+      if (apiKeyLabel) {
+        if (provider === 'openrouter') {
+          apiKeyLabel.innerHTML = 'OpenRouter API Key <span class="opt-tag">(Tùy chọn nếu chưa có trong .env)</span>';
+          apiKeyInput.placeholder = 'sk-or-v1-...';
+        } else if (provider === 'gemini') {
+          apiKeyLabel.innerHTML = 'Gemini API Key <span class="opt-tag">(Tùy chọn nếu chưa có trong .env)</span>';
+          apiKeyInput.placeholder = 'AIzaSy...';
+        } else {
+          apiKeyLabel.innerHTML = 'Groq API Key <span class="opt-tag">(Tùy chọn nếu chưa có trong .env)</span>';
+          apiKeyInput.placeholder = 'gsk_...';
+        }
+      }
+    });
+  }
+
   // 1. Full Pipeline Button (Process all audio files)
   processBtn.addEventListener('click', async () => {
     if (selectedFiles.length === 0) return;
@@ -317,7 +368,12 @@ Structure required:
       formData.append('audio_files', file);
     });
     formData.append('custom_prompt', customPromptInput.value.trim());
-    if (apiKeyInput.value.trim()) formData.append('groq_api_key', apiKeyInput.value.trim());
+    formData.append('provider', providerSelect ? providerSelect.value : 'groq');
+    if (modelSelect && modelSelect.value) formData.append('model_name', modelSelect.value);
+    if (apiKeyInput.value.trim()) {
+      formData.append('provider_api_key', apiKeyInput.value.trim());
+      formData.append('groq_api_key', apiKeyInput.value.trim());
+    }
 
     try {
       setTimeout(() => { step1.className = 'step done'; step2.className = 'step active'; }, 800);
@@ -353,7 +409,11 @@ Structure required:
       selectedFiles.forEach(file => {
         formData.append('audio_files', file);
       });
-      if (apiKeyInput.value.trim()) formData.append('groq_api_key', apiKeyInput.value.trim());
+      formData.append('provider', providerSelect ? providerSelect.value : 'groq');
+      if (apiKeyInput.value.trim()) {
+        formData.append('provider_api_key', apiKeyInput.value.trim());
+        formData.append('groq_api_key', apiKeyInput.value.trim());
+      }
 
       try {
         setTimeout(() => { step1.className = 'step done'; step2.className = 'step active'; }, 800);
@@ -401,6 +461,9 @@ Structure required:
       const payload = {
         raw_transcript: currentTranscript,
         custom_prompt: customPromptInput.value.trim(),
+        provider: providerSelect ? providerSelect.value : 'groq',
+        model_name: modelSelect ? modelSelect.value : '',
+        provider_api_key: apiKeyInput.value.trim(),
         groq_api_key: apiKeyInput.value.trim()
       };
 

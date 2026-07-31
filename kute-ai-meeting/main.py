@@ -10,7 +10,7 @@ if hasattr(sys.stdout, "reconfigure"):
 from stt_service import transcribe_audio
 from summarizer import generate_summary
 
-def run_meeting_pipeline(audio_path: str, output_dir: str = None) -> dict:
+def run_meeting_pipeline(audio_path: str, output_dir: str = None, provider: str = "groq", model_name: str = None) -> dict:
     """
     Chạy toàn bộ pipeline xử lý cuộc họp:
     MP3 -> Speech-to-Text -> raw_transcript.txt -> LLM Summary -> meeting_notes.md
@@ -35,7 +35,8 @@ def run_meeting_pipeline(audio_path: str, output_dir: str = None) -> dict:
     print("🚀 BẮT ĐẦU PIPELINE XỬ LÝ GHI ÂM CUỘC HỌP (KUTE AI MEETING)")
     print("="*60)
     print(f"📁 File đầu vào: {audio_file}")
-    print(f"📂 Thư mục đầu ra: {out_path}\n")
+    print(f"📂 Thư mục đầu ra: {out_path}")
+    print(f"🤖 LLM Provider: {provider.upper()} | Model: {model_name or 'Default'}\n")
     
     # Bước 1: Speech-to-Text
     print("--- [BƯỚC 1/2] Speech-to-Text (Groq Whisper Large V3) ---")
@@ -50,9 +51,9 @@ def run_meeting_pipeline(audio_path: str, output_dir: str = None) -> dict:
     print(f"💾 Đã lưu transcript thô tại: {transcript_file}\n")
     
     # Bước 2: Tóm tắt bằng LLM
-    print("--- [BƯỚC 2/2] LLM Summarization (Llama 3.3 70B Versatile) ---")
+    print(f"--- [BƯỚC 2/2] LLM Summarization ({provider.upper()}) ---")
     llm_start = time.time()
-    meeting_notes = generate_summary(raw_transcript)
+    meeting_notes = generate_summary(raw_transcript, provider=provider, model_name=model_name)
     llm_time = time.time() - llm_start
     print(f"✅ Hoàn thành tóm tắt cuộc họp trong {llm_time:.2f} giây.")
     
@@ -86,6 +87,8 @@ def main():
     parser = argparse.ArgumentParser(description="Kute AI Meeting: Xử lý MP3 -> STT -> LLM Summary -> Markdown Meeting Notes")
     parser.add_argument("audio_path", nargs="?", help="Đường dẫn tới file ghi âm MP3")
     parser.add_argument("-o", "--output-dir", help="Thư mục lưu kết quả đầu ra (mặc định tạo thư mục cạnh file MP3)")
+    parser.add_argument("-p", "--provider", default="groq", choices=["groq", "openrouter", "gemini"], help="Nhà cung cấp LLM (groq, openrouter, gemini)")
+    parser.add_argument("-m", "--model", help="Mô hình LLM tùy chỉnh (VD: gemini-2.5-flash, meta-llama/llama-3.3-70b-instruct)")
     
     args = parser.parse_args()
     
@@ -96,7 +99,7 @@ def main():
         audio_path = args.audio_path
         
     try:
-        run_meeting_pipeline(audio_path, args.output_dir)
+        run_meeting_pipeline(audio_path, args.output_dir, provider=args.provider, model_name=args.model)
     except Exception as e:
         print(f"\n❌ LỖI TRONG QUÁ TRÌNH XỬ LÝ: {e}")
         sys.exit(1)
