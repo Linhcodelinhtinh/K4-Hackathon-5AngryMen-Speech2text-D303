@@ -122,24 +122,25 @@
                 <div class="form-group">
                   <label for="providerSelect">Nhà cung cấp LLM</label>
                   <select id="providerSelect" class="input-field">
-                    <option value="groq" selected>⚡ Groq (Siêu nhanh)</option>
-                    <option value="openrouter">🌐 OpenRouter</option>
+                    <option value="openrouter" selected>🌐 OpenRouter (Khuyên dùng)</option>
+                    <option value="groq">⚡ Groq (Siêu nhanh)</option>
                     <option value="gemini">✨ Google Gemini</option>
                   </select>
                 </div>
                 <div class="form-group">
                   <label for="modelSelect">Mô hình</label>
                   <select id="modelSelect" class="input-field">
-                    <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile ⭐</option>
-                    <option value="llama-3.1-8b-instant">llama-3.1-8b-instant</option>
-                    <option value="gemma2-9b-it">gemma2-9b-it</option>
+                    <option value="meta-llama/llama-3.3-70b-instruct">meta-llama/llama-3.3-70b-instruct ⭐</option>
+                    <option value="anthropic/claude-3.5-sonnet">anthropic/claude-3.5-sonnet</option>
+                    <option value="deepseek/deepseek-r1">deepseek/deepseek-r1</option>
+                    <option value="google/gemini-2.0-flash-001">google/gemini-2.0-flash-001</option>
                   </select>
                 </div>
               </div>
 
               <div class="form-group">
-                <label for="apiKey" id="apiKeyLabel">API Key <span class="opt-tag">(tuỳ chọn nếu đã có trong .env)</span></label>
-                <input type="password" id="apiKey" placeholder="gsk_..." class="input-field">
+                <label for="apiKey" id="apiKeyLabel">OpenRouter API Key <span class="opt-tag">(tuỳ chọn nếu đã có trong .env)</span></label>
+                <input type="password" id="apiKey" placeholder="sk-or-v1-..." class="input-field">
               </div>
 
               <div class="form-group">

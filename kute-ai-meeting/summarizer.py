@@ -11,27 +11,27 @@ if hasattr(sys.stdout, "reconfigure"):
 # Load environment variables
 load_dotenv()
 
-DEFAULT_MODEL = "openai/gpt-oss-120b"
+DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct"
 DEFAULT_PROVIDER = "openrouter"
 MAX_SINGLE_PASS_CHARS = 12000  # Ngưỡng ký tự để chuyển sang chế độ Chunk Map-Reduce
 
 PROVIDER_MODELS = {
     "groq": {
         "default": "llama-3.3-70b-versatile",
-        "fallbacks": ["llama-3.3-70b-versatile", "openai/gpt-oss-20b", "mistral-saba-24b"]
+        "fallbacks": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"]
     },
     "openrouter": {
         "default": "meta-llama/llama-3.3-70b-instruct",
         "fallbacks": ["meta-llama/llama-3.3-70b-instruct", "anthropic/claude-3.5-sonnet", "deepseek/deepseek-r1", "google/gemini-2.0-flash-001"]
     },
     "gemini": {
-        "default": "gemini-3.5-flash",
+        "default": "gemini-2.5-flash",
         "fallbacks": ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.5-pro", "gemini-1.5-pro"]
     }
 }
 
-def get_provider_api_key(provider: str = "groq", override_key: str = None) -> str:
-    provider = (provider or "groq").lower().strip()
+def get_provider_api_key(provider: str = "openrouter", override_key: str = None) -> str:
+    provider = (provider or "openrouter").lower().strip()
     if override_key and override_key.strip():
         key = override_key.strip()
         if provider == "groq":
@@ -47,7 +47,7 @@ def get_provider_api_key(provider: str = "groq", override_key: str = None) -> st
         "openrouter": "OPENROUTER_API_KEY",
         "gemini": "GEMINI_API_KEY"
     }
-    env_var = env_map.get(provider, "GROQ_API_KEY")
+    env_var = env_map.get(provider, "OPENROUTER_API_KEY")
     key = os.getenv(env_var)
     if not key or key.strip() in ["", "your_groq_api_key_here", "gsk_your_groq_api_key_here", "your_openrouter_api_key_here", "your_gemini_api_key_here"]:
         raise ValueError(f"Thiếu {env_var}. Vui lòng nhập API Key cho provider '{provider}' trên giao diện Web hoặc file .env!")
@@ -57,7 +57,7 @@ def get_groq_client() -> Groq:
     api_key = get_provider_api_key("groq")
     return Groq(api_key=api_key)
 
-def call_llm_api(messages: list, provider: str = "groq", model_name: str = None, provider_api_key: str = None, temperature: float = 0.3, max_tokens: int = 4096) -> str:
+def call_llm_api(messages: list, provider: str = "openrouter", model_name: str = None, provider_api_key: str = None, temperature: float = 0.3, max_tokens: int = 4096) -> str:
     """Gọi LLM API tương ứng với Provider (Groq, OpenRouter, Gemini) có tích hợp Fallback."""
     provider = (provider or "groq").lower().strip()
     api_key = get_provider_api_key(provider, provider_api_key)
@@ -237,7 +237,7 @@ CẤU TRÚC MARKDOWN YÊU CẦU:
 </details>
 """
 
-def summarize_single_chunk(chunk_text: str, chunk_index: int, total_chunks: int, model_name: str = None, provider: str = "groq", provider_api_key: str = None) -> str:
+def summarize_single_chunk(chunk_text: str, chunk_index: int, total_chunks: int, model_name: str = None, provider: str = "openrouter", provider_api_key: str = None) -> str:
     """Tóm tắt 1 chunk văn bản nhỏ (Stage: Map)."""
     if not chunk_text or not chunk_text.strip():
         return ""
@@ -255,7 +255,7 @@ def summarize_single_chunk(chunk_text: str, chunk_index: int, total_chunks: int,
         print(f"⚠️ Lỗi tóm tắt chunk #{chunk_index}: {e}")
         return f"- [Đoạn {chunk_index}]: {chunk_text[:300]}..."
 
-def aggregate_chunk_summaries(chunk_summaries: list[str], custom_prompt: str = None, model_name: str = None, provider: str = "groq", provider_api_key: str = None) -> str:
+def aggregate_chunk_summaries(chunk_summaries: list[str], custom_prompt: str = None, model_name: str = None, provider: str = "openrouter", provider_api_key: str = None) -> str:
     """Hợp nhất các tóm tắt thành phần thành Meeting Notes hoàn chỉnh (Stage: Reduce)."""
     combined_summaries_text = "\n\n".join([f"=== TÓM TẮT ĐOẠN {i+1} ===\n{s}" for i, s in enumerate(chunk_summaries) if s])
     
@@ -269,7 +269,7 @@ def aggregate_chunk_summaries(chunk_summaries: list[str], custom_prompt: str = N
     ]
     return call_llm_api(messages, provider=provider, model_name=model_name, provider_api_key=provider_api_key, temperature=0.3, max_tokens=4096)
 
-def summarize_chunks_map_reduce(chunk_transcripts: list[str], custom_prompt: str = None, model_name: str = None, provider: str = "groq", provider_api_key: str = None) -> str:
+def summarize_chunks_map_reduce(chunk_transcripts: list[str], custom_prompt: str = None, model_name: str = None, provider: str = "openrouter", provider_api_key: str = None) -> str:
     """
     Quy trình Map-Reduce tóm tắt song song danh sách các đoạn transcript.
     - Map: Tóm tắt từng chunk song song qua ThreadPoolExecutor.
@@ -296,11 +296,11 @@ def summarize_chunks_map_reduce(chunk_transcripts: list[str], custom_prompt: str
 
     return aggregate_chunk_summaries(chunk_summaries, custom_prompt, model_name, provider, provider_api_key)
 
-def generate_summary(transcript_or_chunks, custom_prompt: str = None, model_name: str = None, provider: str = "groq", provider_api_key: str = None) -> str:
+def generate_summary(transcript_or_chunks, custom_prompt: str = None, model_name: str = None, provider: str = "openrouter", provider_api_key: str = None) -> str:
     """
     Hàm sinh Meeting Notes đa nhà cung cấp (Groq, OpenRouter, Gemini):
     """
-    provider = (provider or "groq").lower().strip()
+    provider = (provider or "openrouter").lower().strip()
 
     # Xử lý input dạng list of chunks
     if isinstance(transcript_or_chunks, list):

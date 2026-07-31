@@ -178,7 +178,7 @@ Structure required:
 
   providerSelect?.addEventListener('change', () => {
     const provider = providerSelect.value;
-    const models   = PROVIDER_MODELS_UI[provider] || PROVIDER_MODELS_UI.groq;
+    const models   = PROVIDER_MODELS_UI[provider] || PROVIDER_MODELS_UI.openrouter;
     modelSelect.innerHTML = '';
     models.forEach(m => {
       const opt = document.createElement('option');
@@ -187,7 +187,7 @@ Structure required:
       modelSelect.appendChild(opt);
     });
     const labels = { openrouter: ['OpenRouter API Key', 'sk-or-v1-...'], gemini: ['Gemini API Key', 'AIzaSy...'], groq: ['Groq API Key', 'gsk_...'] };
-    const [label, placeholder] = labels[provider] || labels.groq;
+    const [label, placeholder] = labels[provider] || labels.openrouter;
     if (apiKeyLabel) apiKeyLabel.innerHTML = `${label} <span class="opt-tag">(tuỳ chọn nếu đã có trong .env)</span>`;
     if (apiKeyInput) apiKeyInput.placeholder = placeholder;
   });
@@ -264,7 +264,7 @@ Structure required:
 
     const formData = new FormData();
     selectedFiles.forEach(f => formData.append('audio_files', f));
-    formData.append('provider', providerSelect?.value || 'groq');
+    formData.append('provider', providerSelect?.value || 'openrouter');
     if (apiKeyInput?.value.trim()) {
       formData.append('provider_api_key', apiKeyInput.value.trim());
       formData.append('groq_api_key', apiKeyInput.value.trim());
@@ -328,7 +328,7 @@ Structure required:
     const payload = {
       raw_transcript:  transcript,
       custom_prompt:   customPromptInput?.value.trim() || '',
-      provider:        providerSelect?.value || 'groq',
+      provider:        providerSelect?.value || 'openrouter',
       model_name:      modelSelect?.value || '',
       provider_api_key: apiKeyInput?.value.trim() || '',
       groq_api_key:    apiKeyInput?.value.trim() || ''

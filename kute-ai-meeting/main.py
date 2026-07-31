@@ -10,7 +10,7 @@ if hasattr(sys.stdout, "reconfigure"):
 from stt_service import transcribe_audio
 from summarizer import generate_summary
 
-def run_meeting_pipeline(audio_path: str, output_dir: str = None, provider: str = "groq", model_name: str = None) -> dict:
+def run_meeting_pipeline(audio_path: str, output_dir: str = None, provider: str = "openrouter", model_name: str = None) -> dict:
     """
     Chạy toàn bộ pipeline xử lý cuộc họp:
     MP3 -> Speech-to-Text -> raw_transcript.txt -> LLM Summary -> meeting_notes.md
@@ -87,7 +87,7 @@ def main():
     parser = argparse.ArgumentParser(description="Kute AI Meeting: Xử lý MP3 -> STT -> LLM Summary -> Markdown Meeting Notes")
     parser.add_argument("audio_path", nargs="?", help="Đường dẫn tới file ghi âm MP3")
     parser.add_argument("-o", "--output-dir", help="Thư mục lưu kết quả đầu ra (mặc định tạo thư mục cạnh file MP3)")
-    parser.add_argument("-p", "--provider", default="groq", choices=["groq", "openrouter", "gemini"], help="Nhà cung cấp LLM (groq, openrouter, gemini)")
+    parser.add_argument("-p", "--provider", default="openrouter", choices=["groq", "openrouter", "gemini"], help="Nhà cung cấp LLM (groq, openrouter, gemini)")
     parser.add_argument("-m", "--model", help="Mô hình LLM tùy chỉnh (VD: gemini-2.5-flash, meta-llama/llama-3.3-70b-instruct)")
     
     args = parser.parse_args()

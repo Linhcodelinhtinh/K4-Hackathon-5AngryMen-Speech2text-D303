@@ -16,7 +16,7 @@ MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024
 class SummarizeRequest(BaseModel):
     raw_transcript: str
     custom_prompt: Optional[str] = None
-    provider: Optional[str] = "groq"
+    provider: Optional[str] = "openrouter"
     model_name: Optional[str] = None
     provider_api_key: Optional[str] = None
     groq_api_key: Optional[str] = None
@@ -31,7 +31,7 @@ from summarizer import generate_summary, DEFAULT_MODEL, get_provider_api_key, SY
 
 app = FastAPI(title="Kute AI Meeting API", description="API Backend for Kute AI Meeting Notes with Multi-File & Multi-Provider")
 
-def validate_llm_api_key(provider: str = "groq", provided_key: str = None) -> str:
+def validate_llm_api_key(provider: str = "openrouter", provided_key: str = None) -> str:
     return get_provider_api_key(provider, provided_key)
 
 def validate_audio_files(files: List[UploadFile]) -> float:
@@ -101,7 +101,7 @@ def parse_and_raise_error(e: Exception):
 async def transcribe_endpoint(
     audio_files: List[UploadFile] = File(None),
     audio_file: Optional[UploadFile] = File(None),
-    provider: Optional[str] = Form("groq"),
+    provider: Optional[str] = Form("openrouter"),
     provider_api_key: Optional[str] = Form(None),
     groq_api_key: Optional[str] = Form(None)
 ):
@@ -163,7 +163,7 @@ async def transcribe_endpoint(
 async def summarize_endpoint(req: SummarizeRequest):
     """Endpoint Tóm tắt từ Raw Transcript text (Tự động kích hoạt Map-Reduce nếu text dài)."""
     try:
-        p = req.provider or "groq"
+        p = req.provider or "openrouter"
         api_key = req.provider_api_key or req.groq_api_key
         validate_llm_api_key(p, api_key)
 
@@ -193,7 +193,7 @@ async def process_meeting_endpoint(
     audio_files: List[UploadFile] = File(None),
     audio_file: Optional[UploadFile] = File(None),
     custom_prompt: Optional[str] = Form(None),
-    provider: Optional[str] = Form("groq"),
+    provider: Optional[str] = Form("openrouter"),
     model_name: Optional[str] = Form(None),
     provider_api_key: Optional[str] = Form(None),
     groq_api_key: Optional[str] = Form(None)
@@ -203,7 +203,7 @@ async def process_meeting_endpoint(
     Parallel STT Chunking + Map-Reduce LLM Summarizing
     """
     try:
-        p = provider or "groq"
+        p = provider or "openrouter"
         api_key = provider_api_key or groq_api_key
         validate_llm_api_key("groq", api_key if p == "groq" else None) # Groq always needed for Whisper STT
         validate_llm_api_key(p, api_key)
