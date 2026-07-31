@@ -1,7 +1,7 @@
 # Bài Thu Hoạch Cá Nhân (Reflection)
 
-- **Họ và Tên**: Phạm Văn D
-- **Mã Học Viên**: K4-1028
+- **Họ và Tên**: Trần Đăng Nguyên
+- **Mã Học Viên**: 2A202601798
 - **Vai trò trong nhóm**: Demo & Presentation Lead (Product Pitcher)
 - **Hạng mục phụ trách**: Soạn Slide thuyết trình 6 trang (`demo-slides.pdf`), Quay Video Demo trải nghiệm sản phẩm, Chuẩn bị kịch bản thuyết trình & Q&A cho vòng Demo CP6.
 
