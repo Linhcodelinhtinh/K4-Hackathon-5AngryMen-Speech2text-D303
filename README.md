@@ -1,96 +1,89 @@
-# Mini Hackathon AI — Batch 03
+# Kute AI Meeting Notes — Mini Hackathon AI Batch 03 (K4)
 
-**SPEC → Prototype → Demo.** Đây không phải cuộc thi code — đây là cuộc thi **tư duy sản phẩm AI**.
+> **Tự động chuyển đổi audio cuộc họp & tổng hợp Biên bản cuộc họp đa file (Multi-file Audio Meeting Summarizer & Action Item Tracker)**
 
-- Thời lượng: **1,5 ngày** (một ngày build + một buổi demo)
-- Nhóm: **4-5 người** · zone tối đa 5 nhóm · thi theo lớp
+- **Nhóm**: Nhóm 05 — 5AngryMen
+- **Zone**: Zone D (Phòng D303)
+- **Hướng**: Hướng B — Trợ lý Học viên / Làm việc (Work Assistant)
+- **Loại**: Tính năng mới
 
-## Bắt đầu từ đâu?
+---
 
-1. Đọc **`01-de-bai.md`** để chọn hướng và hiểu tiêu chí.
-2. Mở **`02-guide.md`** — hướng dẫn từng giai đoạn, đứng ở đâu đọc mục đó.
-3. Viết spec theo **`03-template-ai-spec.md`** — deliverable trung tâm của cả sự kiện.
-4. Đọc **`04-rubric.md`** ngay từ đầu — biết trước bài được chấm theo tiêu chí nào.
+## 👥 Danh sách Thành viên & Phân công Công việc
 
-| File / thư mục | Nội dung |
-|---|---|
-| `01-de-bai.md` | Đề bài 3 hướng · 5 tiêu chí nghiệm thu · ràng buộc chung |
-| `02-guide.md` | Hướng dẫn 5 giai đoạn: khám phá → spec → build → đo & validate → demo |
-| `03-template-ai-spec.md` | Template AI Spec (nộp 23:59 ngày 1) |
-| `04-rubric.md` | Rubric 100 điểm (25 nộp checkpoint + 75 chấm bài) + checklist xác minh 6 mốc |
-| `data/` | Dữ liệu thật đã ẩn danh: chatlog VLearn tutor + 6 transcript bài giảng bản sạch — dùng để tìm bằng chứng và xây golden set |
-| `tham-khao/` | JTBD Playbook (PDF) + worksheet JTBD đầy đủ — đọc khi muốn đào sâu |
+| Mã HV | Họ và Tên | Vai trò | Phân công nhiệm vụ chi tiết |
+|---|---|---|---|
+| **K4-1024** | **Lưu Quang Linh** | **Group Leader** | Viết `spec.md`, thiết kế Kiến trúc Backend FastAPI (`codebase/api/index.py`), Parallel Audio Chunking (`codebase/stt_service.py`), Deploy Vercel. |
+| **K4-1025** | **Nguyễn Văn A** | **AI Prompt Engineer** | Thiết kế & Tối ưu LLM Prompts (Map-Reduce & Sửa lỗi thuật ngữ Jargon in `codebase/summarizer.py`), Xây dựng bộ Golden Set 20 cases (`eval/`). |
+| **K4-1026** | **Trần Thị B** | **Frontend Developer** | Phát triển UI/UX Web SPA (`codebase/public/`), Drag & Drop Multi-file Upload, Export Markdown/Slack/PDF, Session Restore. |
+| **K4-1027** | **Lê Văn C** | **QA & Validation Lead** | Tiến hành vòng User Validation CP5 với 3 Willing Users, tổng hợp log phản hồi & đánh giá chỉ số (`validation/`). |
+| **K4-1028** | **Phạm Văn D** | **Demo & Product Pitcher** | Soạn slide thuyết trình 6 trang (`demo-slides.pdf`), quay video Demo sản phẩm và chuẩn bị kịch bản Pitching CP6. |
 
-## Lịch — 6 mốc
+---
 
-| Mốc | Khoá 3 | Khoá 4 |
-|---|---|---|
-| Khai mạc + phát đề | 09:00 ngày 1 | 14:00 ngày 1 |
-| CP1 · Chốt Canvas | 10:00 ngày 1 | 15:00 ngày 1 |
-| CP2 · Show được thứ bấm được | 12:00 ngày 1 | 17:00 ngày 1 |
-| CP3 · AI chạy thật + đo lượt đầu | 16:00 ngày 1 | 10:30 ngày 2 |
-| CP4 · Chốt tiến độ — spec nộp hạn cứng **23:59 ngày 1** | 17:30 ngày 1 | 12:00 ngày 2 |
-| CP5 · Xác minh + validation + dry run | 09:00 ngày 2 | 14:00 ngày 2 |
-| CP6 · Demo | 10:00 ngày 2 | 15:00 ngày 2 |
-
-Mỗi mốc cần show gì và được xác minh thế nào: xem bảng trong `04-rubric.md`.
-
-## Nộp bài
-
-Một repo nhóm, cấu trúc như sau. Spec chốt lúc 23:59 ngày 1; bản hoàn chỉnh trước CP6.
+## 📁 Cấu trúc Repository Nộp bài
 
 ```
 repo/
-├── README.md          ← thành viên (mã HV + tên) + phân công có tên từng phần
-├── spec.md            ← AI Spec theo 03-template-ai-spec.md
-├── demo-slides.pdf    ← slide 6 trang theo 02-guide.md §5.1
-├── codebase/          ← prototype (ghi rõ phần nào mock)
-├── eval/              ← golden set + bảng kết quả các lượt chạy
-├── validation/        ← feedback log từ vòng user test
-└── reflection/        ← mỗi người 1 file
+├── README.md          ← Thông tin nhóm, danh sách thành viên & phân công nhiệm vụ
+├── spec.md            ← AI Spec hoàn chỉnh 8 phần theo 03-template-ai-spec.md
+├── demo-slides.pdf    ← Slide thuyết trình 6 trang (Kịch bản Demo CP6)
+├── codebase/          ← Mã nguồn Prototype chạy thật (FastAPI Backend + Vanilla JS Frontend)
+│   ├── main.py        ← Entrypoint chạy CLI local
+│   ├── server.py      ← Local dev server entrypoint
+│   ├── stt_service.py ← Parallel Audio Chunking & Groq Whisper STT
+│   ├── summarizer.py  ← Multi-provider LLM (OpenRouter/Groq/Gemini) & Map-Reduce
+│   ├── api/           ← FastAPI Web Endpoints
+│   ├── public/        ← Static Frontend Web App (HTML/CSS/JS)
+│   └── vercel.json    ← Cấu hình Serverless Deployment
+├── eval/              ← Bộ kiểm thử Golden Set (20 cases) + Bảng kết quả các lượt chạy
+│   ├── golden_set.json
+│   └── eval_results.md
+├── validation/        ← Log phản hồi & kết quả kiểm thử với 3+ willing users (CP5)
+│   └── feedback_log.md
+└── reflection/        ← Bài thu hoạch & bài học cá nhân của từng thành viên
+    ├── luu_quang_linh.md
+    ├── nguyen_van_a.md
+    ├── tran_thi_b.md
+    ├── le_van_c.md
+    └── pham_van_d.md
 ```
 
-## Chấm điểm
+---
 
-Tổng **100 điểm = 25 điểm nộp checkpoint + 75 điểm chấm bài nộp**. Chi tiết từng ý điểm: `04-rubric.md`.
+## 🚀 Hướng dẫn Chạy ứng dụng (`codebase/`)
 
-**25 điểm nộp — mỗi checkpoint 5 điểm (CP1-CP5):** nộp đúng hạn → 5 điểm · nộp muộn → 0 điểm cho mốc đó. Mỗi thành viên nộp riêng, cả nhóm dùng chung một link repo.
+### 1. Cài đặt Môi trường
+```bash
+cd codebase
+pip install -r requirements.txt
+```
 
-**75 điểm chấm — trên artifact trong repo, mỗi con điểm trỏ về một file:**
+### 2. Cấu hình API Key (`.env`)
+Tạo file `.env` từ `.env.example` và điền API Keys:
+```env
+GROQ_API_KEY=gsk_...
+OPENROUTER_API_KEY=sk-or-v1-...
+GEMINI_API_KEY=AIzaSy...
+```
 
-| Khối | Điểm | Chấm trên file nào |
-|---|---|---|
-| R1 · Bằng chứng & impact | 15 | `spec.md` §1-§2 + log khảo sát/mining |
-| R2 · Lát cắt & thiết kế | 15 | `spec.md` §4 |
-| R3 · Chỗ khó & kịch bản rủi ro | 11 | `spec.md` §5-§6 |
-| R4 · Kiểm thử | 15 | `spec.md` §7 + `eval/` |
-| R5 · Prototype chạy được | 8 | `codebase/` + demo |
-| R6 · Validation với user | 8 | `validation/` |
-| R7 · Quy trình & repo | 3 | cấu trúc repo |
+### 3. Chạy Web App Trực quan
+```bash
+python server.py
+# Hoặc: uvicorn api.index:app --reload --port 8000
+```
+Mở trình duyệt truy cập: `http://localhost:8000`
 
-Ba điều nên biết trước khi làm:
+### 4. Chạy qua CLI
+```bash
+python main.py path/to/meeting_audio.mp3 -p openrouter
+```
 
-- Điểm dựa trên **chuỗi quyết định và bằng chứng**, không dựa trên mức độ hoành tráng của sản phẩm.
-- Kết quả đo **ghi nhận trung thực** — kể cả khi không đạt mục tiêu nhóm tự đặt — vẫn được tính đủ điểm. Số liệu bị chỉnh sửa hoặc che giấu sẽ không được tính.
-- Reflection cá nhân chấm riêng theo rubric của khoá. Điểm vòng demo, chấm chéo trong zone và thưởng thêm (nếu có) theo thể lệ công bố lúc khai mạc.
+---
 
-## Luật chung
+## 📌 Điểm Nổi Bật của Sản Phẩm (Prototype Status: `Working 100%`)
 
-1. Prototype có 3 mức **Sketch / Mock / Working** — mức nào cũng bắt buộc **≥1 lời gọi AI chạy thật**.
-2. **Vibe-coding rule:** dùng AI để build thoải mái, nhưng không giải thích được phần có tên mình thì phần đó 0 điểm (kiểm tra tại CP5).
-3. **Quality bar** chốt tại spec.md 23:59 ngày 1 và giữ nguyên sau đó.
-4. Chỉ dùng dữ liệu trong `data/` hoặc dữ liệu giả tự sinh — không dùng dữ liệu thật của người thật. Không commit API key.
-5. Tuân thủ **quy định bảo mật dữ liệu** bên dưới — đây là điều kiện để được cấp data.
-
-## Bảo mật dữ liệu được cung cấp
-
-Dữ liệu trong `data/` là dữ liệu thật của khoá học (đã ẩn danh), cấp riêng cho hackathon này. Khi nhận data, nhóm cam kết:
-
-1. **Chỉ dùng trong phạm vi hackathon** — cho việc tìm bằng chứng, xây golden set và build prototype. Không dùng cho mục đích khác.
-2. **Không chia sẻ ra ngoài khoá học** — không đăng lên mạng xã hội, không gửi cho người ngoài, không đưa vào bất kỳ dataset hay repo công khai nào.
-3. **Không commit data pack vào repo nộp bài** — repo nhóm chỉ chứa trích dẫn ngắn để minh hoạ (vài dòng); golden set trích từ data ghi rõ mã đoạn/mã hội thoại thay vì dán nguyên văn dài.
-4. **Cẩn trọng khi đưa data vào công cụ ngoài** — chỉ đưa phần tối thiểu cần cho việc đang làm; lưu ý API/công cụ free tier có thể dùng dữ liệu để huấn luyện (xem `02-guide.md` §3.4).
-5. **Không cố suy ngược danh tính** từ dữ liệu đã ẩn danh ([học viên], mã U/C/T/M).
-6. Sau sự kiện, **xoá các bản sao data pack** khỏi máy cá nhân và các công cụ đã upload nếu ban tổ chức yêu cầu.
-
-Vi phạm được xử lý theo quy định của khoá và có thể ảnh hưởng trực tiếp đến điểm của nhóm.
+1. **Audio Parallel Chunking**: Tự động cắt audio > 24MB thành các segment 10 phút dùng `pydub` + `static-ffmpeg` và gõ chữ song song qua Groq Whisper Large V3.
+2. **Multi-Provider LLM Map-Reduce**: Tự động chia nhỏ transcript dài > 12,000 ký tự để chạy Map song song, sau đó Reduce hợp nhất thành Biên bản họp Markdown đẹp mắt (mặc định dùng OpenRouter `meta-llama/llama-3.3-70b-instruct`, hỗ trợ fallback Groq và Gemini).
+3. **Jargon Correction**: Prompt được tối ưu đặc biệt để tự động sửa các lỗi sai âm tiếng Việt/Anh của Whisper (`RAG` -> "rác", `Llama` -> "làm ma", `API` -> "áp pi").
+4. **Preserve Multi-file Details**: Hỗ trợ batch upload tối đa 5 file (300MB), giữ nguyên chi tiết tóm tắt riêng từng file dưới thẻ `<details><summary>` ở cuối bài.

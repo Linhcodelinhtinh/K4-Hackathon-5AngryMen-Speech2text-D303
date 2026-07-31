@@ -22,10 +22,10 @@ PROVIDER_MODELS = {
     },
     "openrouter": {
         "default": "meta-llama/llama-3.3-70b-instruct",
-        "fallbacks": ["meta-llama/llama-3.3-70b-instruct", "anthropic/claude-3.5-sonnet", "deepseek/deepseek-r1", "google/gemini-2.0-flash-001"]
+        "fallbacks": ["meta-llama/llama-3.3-70b-instruct", "anthropic/claude-3.5-sonnet", "deepseek/deepseek-r1"]
     },
     "gemini": {
-        "default": "gemini-2.5-flash",
+        "default": "gemini-3.5-flash",
         "fallbacks": ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.5-pro", "gemini-1.5-pro"]
     }
 }

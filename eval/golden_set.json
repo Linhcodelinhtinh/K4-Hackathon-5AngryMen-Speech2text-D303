@@ -1,0 +1,222 @@
+[
+  {
+    "id": "CASE-01",
+    "category": "Tech Short Single-file",
+    "description": "Họp nhóm AI 3 phút về RAG pipeline và Llama 3.3 model",
+    "input_files": ["audio_short_rag.mp3"],
+    "audio_duration_min": 3.2,
+    "expected_action_items_count": 3,
+    "jargon_terms": ["RAG", "Llama 3.3", "Groq", "API"],
+    "expected_assignees": ["Anh Tuấn", "Chị Hoa", "Bạn Minh"],
+    "pass_criteria": "Tóm tắt đủ 4 phần, sửa đúng RAG/Llama/API, bảng Action Items chứa đủ 3 người"
+  },
+  {
+    "id": "CASE-02",
+    "category": "Tech Short Single-file",
+    "description": "Thảo luận lựa chọn Vector DB (Qdrant vs Pinecone)",
+    "input_files": ["audio_vectordb.mp3"],
+    "audio_duration_min": 4.5,
+    "expected_action_items_count": 2,
+    "jargon_terms": ["Qdrant", "Pinecone", "Vector Database", "Embeddings"],
+    "expected_assignees": ["Đạt", "Linh"],
+    "pass_criteria": "Nhận diện đúng câu hỏi mở về Vector DB và gán đúng 2 action items"
+  },
+  {
+    "id": "CASE-03",
+    "category": "Tech Short Single-file",
+    "description": "Họp nhanh về Fine-tuning vs RAG cho chatbot VLearn",
+    "input_files": ["audio_finetuning.mp3"],
+    "audio_duration_min": 4.0,
+    "expected_action_items_count": 2,
+    "jargon_terms": ["Fine-tuning", "LoRA", "RAG", "Prompt"],
+    "expected_assignees": ["Hà", "Phong"],
+    "pass_criteria": "Sửa đúng từ 'bóp chim' / 'phai tuning' thành Fine-tuning và LoRA"
+  },
+  {
+    "id": "CASE-04",
+    "category": "Tech Short Single-file",
+    "description": "Họp code review tính năng WebSocket real-time",
+    "input_files": ["audio_websocket.mp3"],
+    "audio_duration_min": 5.0,
+    "expected_action_items_count": 3,
+    "jargon_terms": ["WebSocket", "FastAPI", "Uvicorn", "Asyncio"],
+    "expected_assignees": ["Linh", "Minh"],
+    "pass_criteria": "Tóm tắt rõ các quyết định refactor code WebSocket"
+  },
+  {
+    "id": "CASE-05",
+    "category": "Tech Short Single-file",
+    "description": "Họp bàn giải pháp tối ưu chi phí OpenAI vs OpenRouter",
+    "input_files": ["audio_cost_opt.mp3"],
+    "audio_duration_min": 3.8,
+    "expected_action_items_count": 1,
+    "jargon_terms": ["OpenRouter", "OpenAI", "Rate Limit", "Token"],
+    "expected_assignees": ["Tuấn"],
+    "pass_criteria": "Trích xuất đúng quyết định chuyển provider sang OpenRouter"
+  },
+  {
+    "id": "CASE-06",
+    "category": "Long Audio (>30m / >24MB)",
+    "description": "Họp Sprint Planning toàn nhóm dài 45 phút (>25MB audio)",
+    "input_files": ["audio_sprint_45m.mp3"],
+    "audio_duration_min": 45.0,
+    "expected_action_items_count": 8,
+    "jargon_terms": ["Sprint", "Backlog", "Jira", "CI/CD", "Docker"],
+    "expected_assignees": ["Tuấn", "Hoa", "Minh", "Linh", "Đạt"],
+    "pass_criteria": "Kích hoạt Parallel Audio Chunking thành công, không mất thông tin đoạn cuối"
+  },
+  {
+    "id": "CASE-07",
+    "category": "Long Audio (>30m / >24MB)",
+    "description": "Họp Architecture Review hệ thống AI Microservices dài 35 phút",
+    "input_files": ["audio_arch_35m.mp3"],
+    "audio_duration_min": 35.5,
+    "expected_action_items_count": 6,
+    "jargon_terms": ["Microservices", "Kafka", "Redis", "gRPC"],
+    "expected_assignees": ["Linh", "Tuấn"],
+    "pass_criteria": "Map-Reduce tổng hợp đủ các nhánh kiến trúc mà không vượt quá context window"
+  },
+  {
+    "id": "CASE-08",
+    "category": "Long Audio (>30m / >24MB)",
+    "description": "Họp Demo & Retrospective cuối kỳ 40 phút",
+    "input_files": ["audio_retro_40m.mp3"],
+    "audio_duration_min": 40.0,
+    "expected_action_items_count": 5,
+    "jargon_terms": ["Retro", "Action Items", "Release", "Vercel"],
+    "expected_assignees": ["Hoa", "Cường"],
+    "pass_criteria": "Trích xuất đúng danh sách việc cải tiến cho sprint tiếp theo"
+  },
+  {
+    "id": "CASE-09",
+    "category": "Long Audio (>30m / >24MB)",
+    "description": "Họp đào tạo Prompt Engineering nội bộ 50 phút",
+    "input_files": ["audio_training_50m.mp3"],
+    "audio_duration_min": 50.0,
+    "expected_action_items_count": 4,
+    "jargon_terms": ["Few-shot", "Chain-of-Thought", "System Prompt"],
+    "expected_assignees": ["Minh", "Hà"],
+    "pass_criteria": "Chia 5 chunks 10 phút, Map-Reduce mượt mà không lỗi timeout"
+  },
+  {
+    "id": "CASE-10",
+    "category": "Long Audio (>30m / >24MB)",
+    "description": "Họp bàn giao hạ tầng Server GPU RunPod 32 phút",
+    "input_files": ["audio_gpu_32m.mp3"],
+    "audio_duration_min": 32.0,
+    "expected_action_items_count": 4,
+    "jargon_terms": ["RunPod", "A100 GPU", "CUDA", "vLLM"],
+    "expected_assignees": ["Đạt", "Linh"],
+    "pass_criteria": "Giữ nguyên các thông số kỹ thuật GPU A100 và vLLM"
+  },
+  {
+    "id": "CASE-11",
+    "category": "Multi-file Batch (3-5 files)",
+    "description": "Batch 3 file audio từ 3 sub-team (Frontend, Backend, AI)",
+    "input_files": ["team_fe.mp3", "team_be.mp3", "team_ai.mp3"],
+    "audio_duration_min": 18.0,
+    "expected_action_items_count": 7,
+    "jargon_terms": ["React", "FastAPI", "PyTorch"],
+    "expected_assignees": ["Bích", "Linh", "Nam"],
+    "pass_criteria": "Tạo đủ 3 thẻ details cho 3 file ở cuối bài, Master Summary tổng hợp cả 3 file"
+  },
+  {
+    "id": "CASE-12",
+    "category": "Multi-file Batch (3-5 files)",
+    "description": "Batch 4 file audio các phiên thảo luận 1-on-1 của Trưởng nhóm",
+    "input_files": ["1on1_dev1.mp3", "1on1_dev2.mp3", "1on1_dev3.mp3", "1on1_dev4.mp3"],
+    "audio_duration_min": 24.0,
+    "expected_action_items_count": 6,
+    "jargon_terms": ["KPI", "Feedback", "Refactor"],
+    "expected_assignees": ["Hùng", "Lan", "Mai", "Sơn"],
+    "pass_criteria": "Không bị trôi thông tin các file 1on1 đầu tiên"
+  },
+  {
+    "id": "CASE-13",
+    "category": "Multi-file Batch (3-5 files)",
+    "description": "Batch 5 file audio cuộc họp 5 phân đoạn trong ngày",
+    "input_files": ["part1.mp3", "part2.mp3", "part3.mp3", "part4.mp3", "part5.mp3"],
+    "audio_duration_min": 28.0,
+    "expected_action_items_count": 9,
+    "jargon_terms": ["Part", "Pipeline", "Deploy"],
+    "expected_assignees": ["Tuấn", "Hoa"],
+    "pass_criteria": "Tạo đủ 5 thẻ details riêng cho 5 file part"
+  },
+  {
+    "id": "CASE-14",
+    "category": "Multi-file Batch (3-5 files)",
+    "description": "Batch 3 file thảo luận thiết kế UI/UX và API Contract",
+    "input_files": ["design_ui.mp3", "api_contract.mp3", "test_plan.mp3"],
+    "audio_duration_min": 15.0,
+    "expected_action_items_count": 5,
+    "jargon_terms": ["Figma", "Swagger", "Postman"],
+    "expected_assignees": ["Trần Thị B", "Lưu Quang Linh"],
+    "pass_criteria": "Hợp nhất Action Items không bị trùng lặp công việc"
+  },
+  {
+    "id": "CASE-15",
+    "category": "Multi-file Batch (3-5 files)",
+    "description": "Batch 2 file audio cuộc họp khẩn khắc phục sự cố hệ thống",
+    "input_files": ["incident_call.mp3", "post_mortem.mp3"],
+    "audio_duration_min": 12.0,
+    "expected_action_items_count": 4,
+    "jargon_terms": ["Hotfix", "Sentry", "Rollback"],
+    "expected_assignees": ["Linh", "Minh"],
+    "pass_criteria": "Trích xuất chính xác nguyên nhân sự cố và danh sách hotfix"
+  },
+  {
+    "id": "CASE-16",
+    "category": "Noisy / Mixed Accent",
+    "description": "Audio cuộc họp có nhạc nền cà phê và tiếng ồn xung quanh",
+    "input_files": ["audio_cafe_noise.mp3"],
+    "audio_duration_min": 6.0,
+    "expected_action_items_count": 3,
+    "jargon_terms": ["Database", "Migration"],
+    "expected_assignees": ["Đức"],
+    "pass_criteria": "Lọc được các đoạn thoại chính và đánh dấu [Xác minh lại] nếu nói quá nhỏ"
+  },
+  {
+    "id": "CASE-17",
+    "category": "Noisy / Mixed Accent",
+    "description": "Audio họp chêm tiếng Anh/Việt liên tục tốc độ nói nhanh",
+    "input_files": ["audio_fast_vi_en.mp3"],
+    "audio_duration_min": 7.5,
+    "expected_action_items_count": 4,
+    "jargon_terms": ["Benchmark", "Latency", "Throughput", "GPU"],
+    "expected_assignees": ["Tuấn", "Linh"],
+    "pass_criteria": "Sửa chính xác từ bồi tiếng Anh sang thuật ngữ chuẩn"
+  },
+  {
+    "id": "CASE-18",
+    "category": "Noisy / Mixed Accent",
+    "description": "Audio cuộc họp giọng vùng miền (miền Trung / miền Nam) kết hợp từ lóng tech",
+    "input_files": ["audio_regional_accent.mp3"],
+    "audio_duration_min": 8.0,
+    "expected_action_items_count": 3,
+    "jargon_terms": ["RAG", "Server", "Config"],
+    "expected_assignees": ["Phương"],
+    "pass_criteria": "Whisper + LLM nhận diện đúng ý nghĩa câu nói dù có phát âm vùng miền"
+  },
+  {
+    "id": "CASE-19",
+    "category": "Edge Cases",
+    "description": "Audio chỉ chứa tiếng nhạc không có giọng nói con người",
+    "input_files": ["audio_music_only.mp3"],
+    "audio_duration_min": 2.0,
+    "expected_action_items_count": 0,
+    "jargon_terms": [],
+    "expected_assignees": [],
+    "pass_criteria": "Hệ thống báo cảnh báo 'Audio không chứa thoại' không crash app"
+  },
+  {
+    "id": "CASE-20",
+    "category": "Edge Cases",
+    "description": "Cuộc họp chỉ thảo luận chung chung, không chốt Assignee hay Deadline",
+    "input_files": ["audio_no_assignee.mp3"],
+    "audio_duration_min": 5.0,
+    "expected_action_items_count": 2,
+    "jargon_terms": ["Brainstorming"],
+    "expected_assignees": [],
+    "pass_criteria": "Bảng Action Items điền [Chưa xác định] vào cột Assignee/Deadline"
+  }
+]

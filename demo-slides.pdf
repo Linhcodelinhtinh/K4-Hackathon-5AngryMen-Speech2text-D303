@@ -1,0 +1,50 @@
+%PDF-1.4
+1 0 obj <</Type /Catalog /Pages 2 0 R>> endobj
+2 0 obj <</Type /Pages /Kids [3 0 R 5 0 R 7 0 R 9 0 R 11 0 R 13 0 R] /Count 6>> endobj
+3 0 obj <</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources <</Font <</F1 4 0 R>>>> /Contents 15 0 R>> endobj
+4 0 obj <</Type /Font /Subtype /Type1 /BaseFont /Helvetica>> endobj
+5 0 obj <</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources <</Font <</F1 4 0 R>>>> /Contents 16 0 R>> endobj
+7 0 obj <</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources <</Font <</F1 4 0 R>>>> /Contents 17 0 R>> endobj
+9 0 obj <</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources <</Font <</F1 4 0 R>>>> /Contents 18 0 R>> endobj
+11 0 obj <</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources <</Font <</F1 4 0 R>>>> /Contents 19 0 R>> endobj
+13 0 obj <</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources <</Font <</F1 4 0 R>>>> /Contents 20 0 R>> endobj
+15 0 obj <</Length 180>> stream
+BT /F1 20 Tf 50 720 TD (SLIDE 1: Problem & Evidence - Kute AI Meeting) Tj /F1 12 Tf 0 -30 TD (Group 05 - 5AngryMen | Zone D303) Tj 0 -30 TD (88.6% users spend >45m summarizing meeting notes) Tj 0 -20 TD (82.8% users complain Speech-to-Text mishears tech jargon) Tj ET
+endstream endobj
+16 0 obj <</Length 170>> stream
+BT /F1 20 Tf 50 720 TD (SLIDE 2: Solution & One-Sentence Slice) Tj /F1 12 Tf 0 -30 TD (Multi-file Audio Summarizer & Action Item Tracker) Tj 0 -20 TD (Working 100% Prototype - Augment Automation) Tj ET
+endstream endobj
+17 0 obj <</Length 170>> stream
+BT /F1 20 Tf 50 720 TD (SLIDE 3: Technical Architecture) Tj /F1 12 Tf 0 -30 TD (Audio Parallel Chunking + Groq Whisper STT) Tj 0 -20 TD (LLM Map-Reduce Layer + Multi-Provider Fallback) Tj ET
+endstream endobj
+18 0 obj <</Length 170>> stream
+BT /F1 20 Tf 50 720 TD (SLIDE 4: Live Demo Highlights) Tj /F1 12 Tf 0 -30 TD (Batch Upload 5 Files -> Parallel STT -> Map-Reduce Notes) Tj 0 -20 TD (Export Slack / PDF / Markdown / Re-summarize) Tj ET
+endstream endobj
+19 0 obj <</Length 170>> stream
+BT /F1 20 Tf 50 720 TD (SLIDE 5: Evaluation & Quality Bar) Tj /F1 12 Tf 0 -30 TD (Golden Set 20 Test Cases - Final Pass Rate: 90%) Tj 0 -20 TD (Resolved Large File Limits & Jargon Errors) Tj ET
+endstream endobj
+20 0 obj <</Length 170>> stream
+BT /F1 20 Tf 50 720 TD (SLIDE 6: User Validation CP5 & Roadmap) Tj /F1 12 Tf 0 -30 TD (3 Willing Users - CSAT Score: 9.1 / 10) Tj 0 -20 TD (Future Roadmap: VAD Noise Filter & Speaker Diarization) Tj ET
+endstream endobj
+xref
+0 21
+0000000000 65535 f 
+0000000009 00000 n 
+0000000054 00000 n 
+0000000130 00000 n 
+0000000260 00000 n 
+0000000334 00000 n 
+0000000464 00000 n 
+0000000594 00000 n 
+0000000725 00000 n 
+0000000856 00000 n 
+0000000987 00000 n 
+0000001235 00000 n 
+0000001473 00000 n 
+0000001711 00000 n 
+0000001950 00000 n 
+0000002189 00000 n 
+trailer <</Size 21 /Root 1 0 R>>
+startxref
+2429
+%%EOF
