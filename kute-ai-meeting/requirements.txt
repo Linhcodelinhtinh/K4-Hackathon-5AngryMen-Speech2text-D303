@@ -1,0 +1,24 @@
+# API Dependencies
+groq>=0.9.0
+# API Dependencies
+groq>=0.9.0
+openai>=1.30.0
+google-genai>=0.1.0
+python-dotenv>=1.0.1
+fastapi>=0.110.0
+uvicorn>=0.28.0
+python-multipart>=0.0.9
+# py-cord thay thế discord.py: hỗ trợ ghi âm voice channel (start_recording/Sinks) chính thức,
+# không cần thư viện cộng đồng discord-ext-voice-recv nữa.
+# GHIM ĐÚNG 2.6.1: từ 2.7.0 trở đi, tính năng ghi âm của py-cord bị hỏng do rework cho
+# giao thức DAVE (E2EE) của Discord - start_recording tự phát RuntimeWarning "Voice reception
+# is currently broken", sink.vc không được gán và sink.cleanup() không còn được gọi
+# (xem https://github.com/Pycord-Development/pycord/issues/3139). Không nâng version cho tới khi issue đó được vá.
+# LƯU Ý: py-cord và discord.py dùng chung tên module "discord" nên KHÔNG được cài cùng lúc
+# -> gỡ discord.py/discord-ext-voice-recv trước khi cài py-cord (pip uninstall discord.py discord-ext-voice-recv -y)
+py-cord[voice]==2.6.1
+PyNaCl>=1.5.0
+
+# Audio manipulation and large file handling (chunking)
+pydub>=0.25.1
+static-ffmpeg>=2.5
