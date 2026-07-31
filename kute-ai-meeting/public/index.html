@@ -84,9 +84,12 @@
       <section class="card output-card">
         <div class="results-header">
           <h2>2. Kết quả & Biên bản Cuộc họp</h2>
-          <div class="actions-group hidden" id="outputActions">
-            <button id="copyNotesBtn" class="sec-btn">📋 Copy Markdown</button>
-            <button id="downloadNotesBtn" class="sec-btn">📥 Tải file .md</button>
+          <div class="actions-group hidden" id="outputActions" style="flex-wrap: wrap;">
+            <button id="copyNotesBtn" class="sec-btn">📋 Copy MD</button>
+            <button id="copySlackBtn" class="sec-btn">💬 Copy Slack/Teams</button>
+            <button id="downloadNotesBtn" class="sec-btn">📥 Tải .md</button>
+            <button id="downloadDocxBtn" class="sec-btn">📝 Tải Word (.doc)</button>
+            <button id="printPdfBtn" class="sec-btn">📄 In / PDF</button>
           </div>
         </div>
 
@@ -123,7 +126,12 @@
         <div class="placeholder-state" id="placeholderState">
           <div class="placeholder-icon">📋</div>
           <p>Chưa có dữ liệu xử lý</p>
-          <span>Vui lòng chọn file MP3 và bấm <strong>Bắt đầu Xử lý Cuộc họp</strong></span>
+          <span>Vui lòng chọn file MP3 và bấm <strong>Full Pipeline</strong></span>
+          <div style="margin-top: 15px;">
+            <button id="restoreSessionBtn" class="sec-btn hidden" style="border-color: rgba(129, 140, 248, 0.5); color: #A5B4FC; background: rgba(99, 102, 241, 0.15); padding: 8px 16px; font-weight: 500;">
+              🔄 Khôi phục phiên làm việc gần nhất
+            </button>
+          </div>
         </div>
 
         <!-- Results Display -->
@@ -143,7 +151,11 @@
             <div class="sub-tabs-container hidden" id="transcriptSubTabs"></div>
 
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-              <span style="font-size: 0.85rem; color: #a0aec0;">💡 Bạn có thể chỉnh sửa nội dung bên dưới trước khi tóm tắt lại</span>
+              <!-- Keyword Search Bar -->
+              <div style="display: flex; gap: 8px; align-items: center; flex: 1; min-width: 200px;">
+                <input type="text" id="transcriptSearchInput" placeholder="🔍 Tìm từ khóa (RAG, GPU, Tuấn...)" class="input-field" style="padding: 6px 12px; font-size: 0.85rem;">
+                <span id="searchMatchCount" style="font-size: 0.8rem; color: #A5B4FC; white-space: nowrap; background: rgba(99, 102, 241, 0.2); padding: 4px 8px; border-radius: 4px;" class="hidden">0 kết quả</span>
+              </div>
               <div style="display: flex; gap: 8px;">
                 <button id="copySubTranscriptBtn" class="sec-btn" style="padding: 6px 12px; font-size: 0.85rem;">
                   📋 Copy Text này
@@ -154,6 +166,7 @@
               </div>
             </div>
             <textarea class="raw-transcript" id="transcriptViewer" rows="15" style="width: 100%; border-radius: 8px; background: rgba(0,0,0,0.3); color: #e2e8f0; padding: 12px; font-family: monospace;"></textarea>
+            <div class="raw-transcript hidden" id="transcriptHighlightedView" style="width: 100%; border-radius: 8px; background: rgba(0,0,0,0.3); color: #e2e8f0; padding: 12px; font-family: monospace; line-height: 1.6; max-height: 450px; overflow-y: auto;"></div>
           </div>
 
           <div class="tab-pane" id="statsTab">

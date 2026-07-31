@@ -706,3 +706,55 @@ label {
   padding-bottom: 0.4rem;
 }
 
+/* Keyword Search Highlight Styling */
+#transcriptHighlightedView mark {
+  background: #F59E0B;
+  color: #000000;
+  font-weight: 700;
+  padding: 2px 4px;
+  border-radius: 3px;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+}
+
+/* Print PDF Styling */
+@media print {
+  body {
+    background: #FFFFFF !important;
+    color: #111111 !important;
+  }
+  .bg-glow, .header, .input-card, .actions-group, .tabs-nav, .footer, #statusContainer, #placeholderState, #errorBanner {
+    display: none !important;
+  }
+  .main-grid {
+    display: block !important;
+  }
+  .output-card {
+    background: #FFFFFF !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  .markdown-body {
+    color: #111111 !important;
+  }
+  .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+    color: #111111 !important;
+    border-bottom: 2px solid #333333 !important;
+  }
+  .markdown-body table th, .markdown-body table td {
+    border: 1px solid #666666 !important;
+    color: #111111 !important;
+  }
+  .markdown-body table th {
+    background: #F3F4F6 !important;
+  }
+  .markdown-body details {
+    background: #F9FAFB !important;
+    border: 1px solid #CCCCCC !important;
+  }
+  .markdown-body summary {
+    color: #111111 !important;
+  }
+}
+
+

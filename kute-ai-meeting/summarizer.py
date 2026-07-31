@@ -12,6 +12,7 @@ if hasattr(sys.stdout, "reconfigure"):
 load_dotenv()
 
 DEFAULT_MODEL = "llama-3.3-70b-versatile"
+FALLBACK_MODELS = [DEFAULT_MODEL, "llama-3.1-8b-instant", "mixtral-8x7b-32768"]
 MAX_SINGLE_PASS_CHARS = 12000  # Ngưỡng ký tự để chuyển sang chế độ Chunk Map-Reduce
 
 def get_groq_client() -> Groq:
@@ -19,6 +20,28 @@ def get_groq_client() -> Groq:
     if not api_key or api_key.strip() in ["", "your_groq_api_key_here", "gsk_your_groq_api_key_here"]:
         raise ValueError("GROQ_API_KEY chưa được cấu hình. Vui lòng nhập API Key trên UI hoặc file .env!")
     return Groq(api_key=api_key)
+
+def call_groq_with_fallback(messages: list, temperature: float = 0.3, max_tokens: int = 4096, preferred_model: str = DEFAULT_MODEL) -> str:
+    """Tự động fallback sang các model dự phòng nếu gặp Rate Limit (429) hoặc lỗi server Groq."""
+    client = get_groq_client()
+    models_to_try = [preferred_model] + [m for m in FALLBACK_MODELS if m != preferred_model]
+    
+    last_exception = None
+    for model in models_to_try:
+        try:
+            print(f"🧠 Gửi request tới Groq LLM model: {model}...")
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"⚠️ Model Groq '{model}' gặp sự cố ({e}). Kích hoạt Fallback sang model tiếp theo...")
+            last_exception = e
+            
+    raise last_exception
 
 SYSTEM_PROMPT = """Bạn là một Chuyên gia Thư ký Cuộc họp AI (AI Meeting Assistant) chuyên nghiệp.
 Nhiệm vụ của bạn là nhận bản ghi chép cuộc họp thô (raw transcript từ Speech-to-Text) và tổng hợp thành Biên bản Cuộc họp (Meeting Notes) bằng định dạng Markdown.
@@ -123,45 +146,32 @@ def summarize_single_chunk(chunk_text: str, chunk_index: int, total_chunks: int,
     if not chunk_text or not chunk_text.strip():
         return ""
     
-    client = get_groq_client()
     sys_prompt = CHUNK_MAP_PROMPT.format(chunk_index=chunk_index, total_chunks=total_chunks)
     user_content = f"Nội dung đoạn cuộc họp #{chunk_index}:\n\n---\n{chunk_text.strip()}\n---"
+    messages = [
+        {"role": "system", "content": sys_prompt},
+        {"role": "user", "content": user_content}
+    ]
     
     try:
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {"role": "system", "content": sys_prompt},
-                {"role": "user", "content": user_content}
-            ],
-            temperature=0.3,
-            max_tokens=2048
-        )
-        return response.choices[0].message.content.strip()
+        return call_groq_with_fallback(messages, temperature=0.3, max_tokens=2048, preferred_model=model_name)
     except Exception as e:
         print(f"⚠️ Lỗi tóm tắt chunk #{chunk_index}: {e}")
         return f"- [Đoạn {chunk_index}]: {chunk_text[:300]}..."
 
 def aggregate_chunk_summaries(chunk_summaries: list[str], custom_prompt: str = None, model_name: str = DEFAULT_MODEL) -> str:
     """Hợp nhất các tóm tắt thành phần thành Meeting Notes hoàn chỉnh (Stage: Reduce)."""
-    client = get_groq_client()
-    
     combined_summaries_text = "\n\n".join([f"=== TÓM TẮT ĐOẠN {i+1} ===\n{s}" for i, s in enumerate(chunk_summaries) if s])
     
     sys_prompt = custom_prompt.strip() if (custom_prompt and custom_prompt.strip()) else REDUCE_AGGREGATE_PROMPT
     user_content = f"Dưới đây là các bản tóm tắt thành phần từ từng đoạn của cuộc họp:\n\n---\n{combined_summaries_text}\n---\n\nHãy tổng hợp thành Biên bản Cuộc họp Meeting Notes chuẩn hóa."
     
     print("🧠 [Reduce Stage] Đang tổng hợp các tóm tắt đoạn thành Meeting Notes hoàn chỉnh...")
-    response = client.chat.completions.create(
-        model=model_name,
-        messages=[
-            {"role": "system", "content": sys_prompt},
-            {"role": "user", "content": user_content}
-        ],
-        temperature=0.3,
-        max_tokens=4096
-    )
-    return response.choices[0].message.content.strip()
+    messages = [
+        {"role": "system", "content": sys_prompt},
+        {"role": "user", "content": user_content}
+    ]
+    return call_groq_with_fallback(messages, temperature=0.3, max_tokens=4096, preferred_model=model_name)
 
 def summarize_chunks_map_reduce(chunk_transcripts: list[str], custom_prompt: str = None, model_name: str = DEFAULT_MODEL) -> str:
     """
@@ -235,23 +245,16 @@ def generate_summary(transcript_or_chunks, custom_prompt: str = None, model_name
         return summarize_chunks_map_reduce(chunks, custom_prompt, model_name)
 
     # Trường hợp 2: Single-pass cho transcript vừa và nhỏ
-    print(f"🧠 Đang gửi transcript ({len(transcript)} ký tự) tới Groq LLM ({model_name})...")
-    client = get_groq_client()
+    print(f"🧠 Đang gửi transcript ({len(transcript)} ký tự) tới Groq LLM...")
 
     sys_prompt = custom_prompt.strip() if (custom_prompt and custom_prompt.strip()) else SYSTEM_PROMPT
     user_content = f"Dưới đây là bản transcript thô của cuộc họp:\n\n---\n{transcript}\n---\n\nHãy tạo Meeting Notes Markdown chuẩn hóa theo đúng yêu cầu."
+    messages = [
+        {"role": "system", "content": sys_prompt},
+        {"role": "user", "content": user_content}
+    ]
 
-    response = client.chat.completions.create(
-        model=model_name,
-        messages=[
-            {"role": "system", "content": sys_prompt},
-            {"role": "user", "content": user_content}
-        ],
-        temperature=0.3,
-        max_tokens=4096
-    )
-
-    return response.choices[0].message.content.strip()
+    return call_groq_with_fallback(messages, temperature=0.3, max_tokens=4096, preferred_model=model_name)
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):

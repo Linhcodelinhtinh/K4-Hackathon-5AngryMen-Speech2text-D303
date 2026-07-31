@@ -47,12 +47,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const transcriptSubTabs = document.getElementById('transcriptSubTabs');
   const copySubTranscriptBtn = document.getElementById('copySubTranscriptBtn');
+  const restoreSessionBtn = document.getElementById('restoreSessionBtn');
+
+  const copySlackBtn = document.getElementById('copySlackBtn');
+  const downloadDocxBtn = document.getElementById('downloadDocxBtn');
+  const printPdfBtn = document.getElementById('printPdfBtn');
+
+  const transcriptSearchInput = document.getElementById('transcriptSearchInput');
+  const searchMatchCount = document.getElementById('searchMatchCount');
+  const transcriptHighlightedView = document.getElementById('transcriptHighlightedView');
 
   let selectedFiles = []; // Mảng chứa danh sách các File đối tượng
   let timerInterval = null;
   let meetingNotesMarkdown = '';
   let rawTranscriptText = '';
   let currentFilesDetail = [];
+
+  // Check LocalStorage Backup on init
+  checkBackupSessionUI();
+
+  function checkBackupSessionUI() {
+    if (!restoreSessionBtn) return;
+    try {
+      const saved = localStorage.getItem('kute_ai_backup_session');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && (parsed.meeting_notes || parsed.raw_transcript)) {
+          restoreSessionBtn.classList.remove('hidden');
+        }
+      }
+    } catch (e) {
+      console.warn("LocalStorage check failed:", e);
+    }
+  }
+
+  if (restoreSessionBtn) {
+    restoreSessionBtn.addEventListener('click', () => {
+      try {
+        const saved = localStorage.getItem('kute_ai_backup_session');
+        if (!saved) return;
+        const data = JSON.parse(saved);
+        
+        placeholderState.classList.add('hidden');
+        if (errorBanner) errorBanner.classList.add('hidden');
+        resultsContent.classList.remove('hidden');
+        outputActions.classList.remove('hidden');
+
+        saveAndRenderData(data);
+        if (reSummarizeBtn) reSummarizeBtn.disabled = false;
+        switchToTab('notes');
+      } catch (e) {
+        alert("❌ Lỗi khi khôi phục dữ liệu gần nhất!");
+      }
+    });
+  }
 
   // Prompt Preset Templates
   const PRESET_PROMPTS = {
@@ -463,10 +511,28 @@ Structure required:
     
     renderSubTabsUI(currentFilesDetail);
 
-    statTotalTime.textContent = `${data.total_time ? data.total_time.toFixed(1) : 0}s`;
-    statSTTTime.textContent = `${data.stt_time ? data.stt_time.toFixed(1) : 0}s`;
-    statLLMTime.textContent = `${data.llm_time ? data.llm_time.toFixed(1) : 0}s`;
+    statTotalTime.textContent = `${data.total_time ? data.total_time.toFixed(1) : (data.stats ? data.stats.total_time : 0)}s`;
+    statSTTTime.textContent = `${data.stt_time ? data.stt_time.toFixed(1) : (data.stats ? data.stats.stt_time : 0)}s`;
+    statLLMTime.textContent = `${data.llm_time ? data.llm_time.toFixed(1) : (data.stats ? data.stats.llm_time : 0)}s`;
     statWordCount.textContent = rawTranscriptText.trim().split(/\s+/).length;
+
+    // Auto Backup to LocalStorage
+    try {
+      localStorage.setItem('kute_ai_backup_session', JSON.stringify({
+        meeting_notes: meetingNotesMarkdown,
+        raw_transcript: rawTranscriptText,
+        files_detail: currentFilesDetail,
+        stats: {
+          total_time: data.total_time || 0,
+          stt_time: data.stt_time || 0,
+          llm_time: data.llm_time || 0
+        },
+        timestamp: Date.now()
+      }));
+      if (restoreSessionBtn) restoreSessionBtn.classList.remove('hidden');
+    } catch (e) {
+      console.warn("Could not save session to LocalStorage:", e);
+    }
   }
 
   function renderSubTabsUI(filesDetail) {
@@ -542,4 +608,98 @@ Structure required:
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   });
+
+  // Copy Slack / Teams Formatted Text
+  if (copySlackBtn) {
+    copySlackBtn.addEventListener('click', () => {
+      if (!meetingNotesMarkdown) return;
+      const slackFormatted = meetingNotesMarkdown
+        .replace(/^# (.*$)/gim, '*$1*')
+        .replace(/^## (.*$)/gim, '\n*$1*')
+        .replace(/^### (.*$)/gim, '\n*$1*');
+      
+      navigator.clipboard.writeText(slackFormatted).then(() => {
+        const origText = copySlackBtn.textContent;
+        copySlackBtn.textContent = '✅ Đã copy Slack!';
+        setTimeout(() => copySlackBtn.textContent = origText, 2000);
+      });
+    });
+  }
+
+  // Download Word (.doc) File
+  if (downloadDocxBtn) {
+    downloadDocxBtn.addEventListener('click', () => {
+      if (!meetingNotesMarkdown) return;
+      const htmlContent = `
+        <html xmlns:o='urn:schemas-microsoft-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head><meta charset='utf-8'><title>Meeting Notes</title>
+        <style>
+          body { font-family: 'Calibri', 'Arial', sans-serif; line-height: 1.6; color: #111; }
+          h1 { color: #1E3A8A; border-bottom: 2px solid #1E3A8A; padding-bottom: 5px; }
+          h2 { color: #2563EB; margin-top: 20px; border-bottom: 1px solid #DDD; padding-bottom: 3px; }
+          table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+          th, td { border: 1px solid #CBD5E1; padding: 8px 12px; text-align: left; }
+          th { background-color: #F1F5F9; color: #1E293B; }
+          ul, ol { padding-left: 20px; }
+        </style>
+        </head>
+        <body>${marked.parse(meetingNotesMarkdown)}</body>
+        </html>
+      `;
+      const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Meeting_Notes_${Date.now()}.doc`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  // Print / PDF Button
+  if (printPdfBtn) {
+    printPdfBtn.addEventListener('click', () => {
+      if (!meetingNotesMarkdown) return;
+      window.print();
+    });
+  }
+
+  // Transcript Keyword Search & Highlight
+  if (transcriptSearchInput && transcriptViewer && transcriptHighlightedView) {
+    transcriptSearchInput.addEventListener('input', () => {
+      const query = transcriptSearchInput.value.trim();
+      const currentText = transcriptViewer.value || '';
+
+      if (!query) {
+        transcriptHighlightedView.classList.add('hidden');
+        transcriptViewer.classList.remove('hidden');
+        if (searchMatchCount) searchMatchCount.classList.add('hidden');
+        return;
+      }
+
+      // Escape HTML special characters
+      const escapedText = currentText
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+      const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(${escapedQuery})`, 'gi');
+      
+      const matches = (currentText.match(regex) || []).length;
+      
+      if (searchMatchCount) {
+        searchMatchCount.textContent = `${matches} kết quả`;
+        searchMatchCount.classList.remove('hidden');
+      }
+
+      const highlightedHTML = escapedText.replace(regex, '<mark>$1</mark>');
+      transcriptHighlightedView.innerHTML = highlightedHTML;
+
+      transcriptViewer.classList.add('hidden');
+      transcriptHighlightedView.classList.remove('hidden');
+    });
+  }
 });
