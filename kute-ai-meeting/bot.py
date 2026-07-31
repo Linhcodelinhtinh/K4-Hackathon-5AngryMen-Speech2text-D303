@@ -139,7 +139,7 @@ async def manual_note(ctx, *, custom_prompt: str = None):
         meeting_notes = await asyncio.to_thread(
             generate_summary,
             raw_transcript,
-            provider="groq",
+            provider="openrouter",
             model_name=None,
             custom_prompt=custom_prompt
         )
@@ -256,7 +256,7 @@ async def process_and_finish_meeting(guild: discord.Guild, text_channel: discord
         raw_transcript = await asyncio.to_thread(transcribe_audio, audio_path)
 
         # Non-blocking LLM Summarization
-        meeting_notes = await asyncio.to_thread(generate_summary, raw_transcript, "groq")
+        meeting_notes = await asyncio.to_thread(generate_summary, raw_transcript, "openrouter")
 
         # Gửi kết quả lên Channel
         await send_meeting_notes_to_channel(text_channel, meeting_notes, raw_transcript, "Voice_Recording.wav")
