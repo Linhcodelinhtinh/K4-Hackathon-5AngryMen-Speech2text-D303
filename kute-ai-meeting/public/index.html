@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kute AI Meeting - Smart Meeting Notes Assistant</title>
+  <meta name="description" content="Tự động chuyển đổi ghi âm cuộc họp thành Meeting Notes Markdown chuẩn hóa với AI.">
   <!-- Google Fonts & Marked Markdown Parser -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,13 +22,22 @@
         <span class="sparkle">✨</span> AI Core Engine
       </div>
       <h1>Kute AI Meeting Notes</h1>
-      <p class="subtitle">Tự động chuyển đổi MP3 ghi âm cuộc họp $\rightarrow$ Speech-to-Text $\rightarrow$ Meeting Notes Markdown chuẩn hóa</p>
+      <p class="subtitle">Upload ghi âm → AI Speech-to-Text → Rà soát transcript → Tóm tắt thành Meeting Notes</p>
     </header>
 
-    <main class="main-grid">
-      <!-- Left Column: Input Form -->
-      <section class="card input-card">
-        <h2>1. Tải lên File & Thiết lập</h2>
+    <!-- TWO-COLUMN SPLIT LAYOUT -->
+    <main class="split-layout">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           LEFT PANEL: Upload + Transcript Editor + Summarize Button
+           ═══════════════════════════════════════════════════════════ -->
+      <section class="panel left-panel">
+
+        <!-- STEP 1: Upload -->
+        <div class="step-header">
+          <span class="step-badge">1</span>
+          <h2>Tải lên File Ghi âm</h2>
+        </div>
 
         <!-- Drag & Drop Zone -->
         <div class="drop-zone" id="dropZone">
@@ -36,7 +46,7 @@
             <div class="icon-upload">🎙️</div>
             <p class="drop-title">Kéo & thả file ghi âm vào đây</p>
             <p class="drop-sub">hoặc <span class="browse-btn">chọn tối đa 5 file từ máy tính</span></p>
-            <span class="file-formats">Hỗ trợ MP3, M4A, WAV, OGG (Tối đa 5 file / Tổng &le; 300MB)</span>
+            <span class="file-formats">MP3, M4A, WAV, OGG · Tối đa 5 file / 300MB</span>
           </div>
           <div class="file-info hidden" id="fileInfo">
             <div class="file-header-summary">
@@ -48,173 +58,188 @@
           </div>
         </div>
 
-        <!-- Provider & Model Selection -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-          <div class="form-group" style="margin-bottom: 0;">
-            <label for="providerSelect">Nhà cung cấp LLM</label>
-            <select id="providerSelect" class="input-field" style="padding: 10px;">
-              <option value="groq" selected>⚡ Groq (Siêu nhanh)</option>
-              <option value="openrouter">🌐 OpenRouter (Đa mô hình)</option>
-              <option value="gemini">✨ Google Gemini</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin-bottom: 0;">
-            <label for="modelSelect">Mô hình (Model)</label>
-            <select id="modelSelect" class="input-field" style="padding: 10px;">
-              <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile (Khuyên dùng)</option>
-              <option value="llama-3.1-8b-instant">llama-3.1-8b-instant</option>
-              <option value="mixtral-8x7b-32768">mixtral-8x7b-32768</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- API Key Option -->
-        <div class="form-group">
-          <label for="apiKey" id="apiKeyLabel">Groq API Key <span class="opt-tag">(Tùy chọn nếu chưa có trong .env)</span></label>
-          <input type="password" id="apiKey" placeholder="gsk_..." class="input-field">
-        </div>
-
-        <!-- Custom Prompt & Presets -->
-        <div class="form-group">
-          <div class="label-row">
-            <label for="customPrompt">Prompt Định Hướng LLM</label>
-            <span class="prompt-hint">Tùy chỉnh phong cách tóm tắt</span>
-          </div>
-
-          <div class="preset-chips">
-            <button type="button" class="chip active" data-preset="standard">🎯 Tiêu chuẩn</button>
-            <button type="button" class="chip" data-preset="action">✅ Tập trung Action Items</button>
-            <button type="button" class="chip" data-preset="tech">💻 Thuật ngữ Tech & RAG</button>
-            <button type="button" class="chip" data-preset="english">🇬🇧 Tóm tắt Tiếng Anh</button>
-          </div>
-
-          <textarea id="customPrompt" rows="6" class="textarea-field" placeholder="Nhập chỉ dẫn riêng cho LLM..."></textarea>
-        </div>
-
-       <div class="btn-group" style="display: flex; gap: 10px; margin-top: 15px;">
-        <button id="processBtn" class="primary-btn" disabled style="flex: 2;">
-          <span class="btn-icon">⚡</span> Full Pipeline
+        <!-- Transcribe Button -->
+        <button id="transcribeBtn" class="primary-btn full-width-btn" disabled>
+          <span class="btn-icon">🎙️</span> Nhận diện giọng nói (Whisper)
         </button>
-        <button id="transcribeOnlyBtn" class="sec-btn" disabled style="flex: 1;">
-          <span class="btn-icon">🎙️</span> Chỉ Transcribe
-        </button>
+
+        <!-- Transcribe Progress -->
+        <div class="stt-progress hidden" id="sttProgress">
+          <div class="mini-spinner"></div>
+          <span id="sttProgressText">Đang nhận diện giọng nói...</span>
+          <span class="elapsed-badge" id="sttTimer">0s</span>
         </div>
 
-      <!-- Right Column: Status & Results -->
-      <section class="card output-card">
+        <!-- Error Banner (left panel) -->
+        <div class="error-banner hidden" id="errorBanner">
+          <span class="error-icon">⚠️</span>
+          <div>
+            <strong id="errorTitle"></strong>
+            <p id="errorDetail" class="error-detail-text"></p>
+          </div>
+        </div>
+
+        <!-- ─────────────────────────────────────────────────────────
+             STEP 2: Transcript Editor (shown after transcription)
+             ───────────────────────────────────────────────────────── -->
+        <div id="transcriptSection" class="hidden transcript-section">
+          <div class="step-header" style="margin-top: 20px;">
+            <span class="step-badge">2</span>
+            <h2>Rà soát &amp; Chỉnh sửa Transcript</h2>
+          </div>
+
+          <!-- File sub-tabs (multi-file) -->
+          <div class="sub-tabs-container hidden" id="transcriptSubTabs"></div>
+
+          <!-- Keyword search -->
+          <div class="search-bar-row">
+            <input type="text" id="transcriptSearchInput"
+                   placeholder="🔍 Tìm từ khóa (RAG, API, Tuấn...)"
+                   class="input-field search-input">
+            <span id="searchMatchCount" class="match-count hidden">0 kết quả</span>
+          </div>
+
+          <!-- Editable transcript textarea -->
+          <textarea id="transcriptViewer"
+                    class="transcript-editor"
+                    rows="14"
+                    placeholder="Transcript sẽ hiển thị ở đây sau khi nhận diện giọng nói..."></textarea>
+
+          <!-- Highlight overlay (search) -->
+          <div class="transcript-highlight hidden" id="transcriptHighlightedView"></div>
+
+          <!-- Transcript actions row -->
+          <div class="transcript-actions">
+            <button id="copyTranscriptBtn" class="sec-btn">📋 Copy</button>
+            <span class="transcript-hint">💡 Bạn có thể chỉnh sửa transcript trực tiếp trước khi tóm tắt</span>
+          </div>
+
+          <!-- ─── LLM Settings (collapsed by default) ─── -->
+          <details class="llm-settings-panel" id="llmSettingsPanel">
+            <summary class="llm-settings-toggle">⚙️ Cài đặt LLM &amp; Prompt <span class="expand-hint">(tuỳ chọn)</span></summary>
+            <div class="llm-settings-body">
+              <div class="two-col-grid">
+                <div class="form-group">
+                  <label for="providerSelect">Nhà cung cấp LLM</label>
+                  <select id="providerSelect" class="input-field">
+                    <option value="groq" selected>⚡ Groq (Siêu nhanh)</option>
+                    <option value="openrouter">🌐 OpenRouter</option>
+                    <option value="gemini">✨ Google Gemini</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="modelSelect">Mô hình</label>
+                  <select id="modelSelect" class="input-field">
+                    <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile ⭐</option>
+                    <option value="llama-3.1-8b-instant">llama-3.1-8b-instant</option>
+                    <option value="gemma2-9b-it">gemma2-9b-it</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="apiKey" id="apiKeyLabel">API Key <span class="opt-tag">(tuỳ chọn nếu đã có trong .env)</span></label>
+                <input type="password" id="apiKey" placeholder="gsk_..." class="input-field">
+              </div>
+
+              <div class="form-group">
+                <div class="label-row">
+                  <label for="customPrompt">Prompt tùy chỉnh</label>
+                  <span class="prompt-hint">Tùy chỉnh phong cách tóm tắt</span>
+                </div>
+                <div class="preset-chips">
+                  <button type="button" class="chip active" data-preset="standard">🎯 Tiêu chuẩn</button>
+                  <button type="button" class="chip" data-preset="action">✅ Action Items</button>
+                  <button type="button" class="chip" data-preset="tech">💻 Tech / RAG</button>
+                  <button type="button" class="chip" data-preset="english">🇬🇧 English</button>
+                </div>
+                <textarea id="customPrompt" rows="5" class="textarea-field"
+                          placeholder="Nhập chỉ dẫn riêng cho LLM..."></textarea>
+              </div>
+            </div>
+          </details>
+
+          <!-- ── STEP 3: SUMMARIZE BUTTON ── -->
+          <div class="step-header" style="margin-top: 16px;">
+            <span class="step-badge">3</span>
+            <h2>Tóm tắt toàn bộ</h2>
+          </div>
+          <button id="summarizeBtn" class="primary-btn full-width-btn summarize-btn">
+            <span class="btn-icon">🧠</span> Tóm tắt tất cả
+          </button>
+
+          <!-- Summarize Progress -->
+          <div class="stt-progress hidden" id="llmProgress">
+            <div class="mini-spinner"></div>
+            <span id="llmProgressText">Đang tóm tắt bằng LLM...</span>
+            <span class="elapsed-badge" id="llmTimer">0s</span>
+          </div>
+        </div>
+
+        <!-- Restore Session Button -->
+        <div style="margin-top: 12px; text-align: center;">
+          <button id="restoreSessionBtn" class="sec-btn hidden restore-btn">
+            🔄 Khôi phục phiên làm việc gần nhất
+          </button>
+        </div>
+
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           RIGHT PANEL: Meeting Notes Result
+           ═══════════════════════════════════════════════════════════ -->
+      <section class="panel right-panel">
         <div class="results-header">
-          <h2>2. Kết quả & Biên bản Cuộc họp</h2>
-          <div class="actions-group hidden" id="outputActions" style="flex-wrap: wrap;">
+          <div class="step-header">
+            <span class="step-badge step-badge--right">📋</span>
+            <h2>Meeting Notes</h2>
+          </div>
+          <div class="actions-group hidden" id="outputActions">
             <button id="copyNotesBtn" class="sec-btn">📋 Copy MD</button>
-            <button id="copySlackBtn" class="sec-btn">💬 Copy Slack/Teams</button>
-            <button id="downloadNotesBtn" class="sec-btn">📥 Tải .md</button>
-            <button id="downloadDocxBtn" class="sec-btn">📝 Tải Word (.doc)</button>
-            <button id="printPdfBtn" class="sec-btn">📄 In / PDF</button>
+            <button id="copySlackBtn" class="sec-btn">💬 Slack</button>
+            <button id="downloadNotesBtn" class="sec-btn">📥 .md</button>
+            <button id="downloadDocxBtn" class="sec-btn">📝 Word</button>
+            <button id="printPdfBtn" class="sec-btn">📄 PDF</button>
           </div>
         </div>
 
-        <!-- Processing State / Stepper -->
-        <div class="status-container hidden" id="statusContainer">
+        <!-- Placeholder state -->
+        <div class="placeholder-state" id="placeholderState">
+          <div class="placeholder-icon">📝</div>
+          <p>Meeting Notes sẽ xuất hiện ở đây</p>
+          <span>Hãy upload file ghi âm và bấm <strong>Tóm tắt tất cả</strong></span>
+        </div>
+
+        <!-- Summarize spinner (right panel) -->
+        <div class="summarize-loading hidden" id="summarizeLoading">
           <div class="spinner"></div>
           <div class="status-steps">
-            <div class="step" id="step1">
-              <span class="step-icon">📤</span>
-              <span class="step-text">Tải file ghi âm lên server...</span>
-            </div>
-            <div class="step" id="step2">
-              <span class="step-icon">🎙️</span>
-              <span class="step-text">Speech-to-Text (Whisper Parallel Chunking)...</span>
-            </div>
-            <div class="step" id="step3">
+            <div class="step" id="stepLLM">
               <span class="step-icon">🧠</span>
-              <span class="step-text">LLM Map-Reduce Summarizing (Llama 3.3 70B)...</span>
+              <span class="step-text">LLM đang tóm tắt transcript...</span>
             </div>
           </div>
           <p class="elapsed-timer" id="elapsedTimer">Thời gian xử lý: 0s</p>
         </div>
 
-        <!-- Error State Display Banner -->
-        <div class="error-banner hidden" id="errorBanner">
-          <div class="error-badge">
-            <span class="error-icon">⚠️</span>
-            <strong id="errorTitle">Lỗi 500: "Lỗi xử lý server"</strong>
+        <!-- Meeting Notes output -->
+        <div class="notes-output hidden" id="notesOutput">
+          <!-- Stats bar -->
+          <div class="stats-bar" id="statsBar">
+            <span class="stat-pill" id="statTotalTime">⏱ 0s</span>
+            <span class="stat-pill" id="statSTTTime">🎙 STT: 0s</span>
+            <span class="stat-pill" id="statLLMTime">🧠 LLM: 0s</span>
+            <span class="stat-pill" id="statWordCount">📝 0 từ</span>
           </div>
-          <p id="errorDetail" class="error-detail-text"></p>
+          <!-- Markdown rendered notes -->
+          <div class="markdown-body" id="markdownViewer"></div>
         </div>
 
-        <!-- Initial Placeholder State -->
-        <div class="placeholder-state" id="placeholderState">
-          <div class="placeholder-icon">📋</div>
-          <p>Chưa có dữ liệu xử lý</p>
-          <span>Vui lòng chọn file MP3 và bấm <strong>Full Pipeline</strong></span>
-          <div style="margin-top: 15px;">
-            <button id="restoreSessionBtn" class="sec-btn hidden" style="border-color: rgba(129, 140, 248, 0.5); color: #A5B4FC; background: rgba(99, 102, 241, 0.15); padding: 8px 16px; font-weight: 500;">
-              🔄 Khôi phục phiên làm việc gần nhất
-            </button>
-          </div>
-        </div>
-
-        <!-- Results Display -->
-        <div class="results-content hidden" id="resultsContent">
-          <div class="tabs-nav">
-            <button class="tab-btn active" data-tab="notesTab">📝 Meeting Notes</button>
-            <button class="tab-btn" data-tab="transcriptTab">📜 Raw Transcript</button>
-            <button class="tab-btn" data-tab="statsTab">📊 Thống kê</button>
-          </div>
-
-          <div class="tab-pane active" id="notesTab">
-            <div class="markdown-body" id="markdownViewer"></div>
-          </div>
-
-          <div class="tab-pane" id="transcriptTab">
-            <!-- Sub-Tabs Navigation for Multi-file Transcript -->
-            <div class="sub-tabs-container hidden" id="transcriptSubTabs"></div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-              <!-- Keyword Search Bar -->
-              <div style="display: flex; gap: 8px; align-items: center; flex: 1; min-width: 200px;">
-                <input type="text" id="transcriptSearchInput" placeholder="🔍 Tìm từ khóa (RAG, GPU, Tuấn...)" class="input-field" style="padding: 6px 12px; font-size: 0.85rem;">
-                <span id="searchMatchCount" style="font-size: 0.8rem; color: #A5B4FC; white-space: nowrap; background: rgba(99, 102, 241, 0.2); padding: 4px 8px; border-radius: 4px;" class="hidden">0 kết quả</span>
-              </div>
-              <div style="display: flex; gap: 8px;">
-                <button id="copySubTranscriptBtn" class="sec-btn" style="padding: 6px 12px; font-size: 0.85rem;">
-                  📋 Copy Text này
-                </button>
-                <button id="reSummarizeBtn" class="sec-btn" style="padding: 6px 12px; font-size: 0.85rem;">
-                  🧠 Tóm tắt lại
-                </button>
-              </div>
-            </div>
-            <textarea class="raw-transcript" id="transcriptViewer" rows="15" style="width: 100%; border-radius: 8px; background: rgba(0,0,0,0.3); color: #e2e8f0; padding: 12px; font-family: monospace;"></textarea>
-            <div class="raw-transcript hidden" id="transcriptHighlightedView" style="width: 100%; border-radius: 8px; background: rgba(0,0,0,0.3); color: #e2e8f0; padding: 12px; font-family: monospace; line-height: 1.6; max-height: 450px; overflow-y: auto;"></div>
-          </div>
-
-          <div class="tab-pane" id="statsTab">
-            <div class="stats-grid" id="statsGrid">
-              <div class="stat-card">
-                <span class="stat-value" id="statTotalTime">0s</span>
-                <span class="stat-label">Tổng thời gian xử lý</span>
-              </div>
-              <div class="stat-card">
-                <span class="stat-value" id="statSTTTime">0s</span>
-                <span class="stat-label">Thời gian STT (Whisper)</span>
-              </div>
-              <div class="stat-card">
-                <span class="stat-value" id="statLLMTime">0s</span>
-                <span class="stat-label">Thời gian LLM (Llama)</span>
-              </div>
-              <div class="stat-card">
-                <span class="stat-value" id="statWordCount">0</span>
-                <span class="stat-label">Số từ transcript thô</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </section>
     </main>
 
     <footer class="footer">
-      <p>Kute AI Meeting Notes &bull; Powered by Groq Whisper Large V3 & Llama 3.3 70B &bull; Ready for Vercel</p>
+      <p>Kute AI Meeting Notes &bull; Powered by Groq Whisper Large V3 &amp; Llama 3.3 70B &bull; Ready for Vercel</p>
     </footer>
   </div>
 
