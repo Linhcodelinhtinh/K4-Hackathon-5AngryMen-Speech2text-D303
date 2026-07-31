@@ -18,14 +18,16 @@ MAX_SINGLE_PASS_CHARS = 12000  # Ngưỡng ký tự để chuyển sang chế đ
 PROVIDER_MODELS = {
     "groq": {
         "default": "llama-3.3-70b-versatile",
-        "fallbacks": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"]
+        # mixtral-8x7b-32768 đã bị Groq decommission (400 error) — dùng gemma2-9b-it thay thế
+        "fallbacks": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"]
     },
     "openrouter": {
         "default": "meta-llama/llama-3.3-70b-instruct",
         "fallbacks": ["meta-llama/llama-3.3-70b-instruct", "anthropic/claude-3.5-sonnet", "deepseek/deepseek-r1", "google/gemini-2.0-flash-001"]
     },
     "gemini": {
-        "default": "gemini-3.5-flash",
+        # gemini-3.5-flash không tồn tại — đúng là gemini-2.5-flash
+        "default": "gemini-2.5-flash",
         "fallbacks": ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.5-pro", "gemini-1.5-pro"]
     }
 }
