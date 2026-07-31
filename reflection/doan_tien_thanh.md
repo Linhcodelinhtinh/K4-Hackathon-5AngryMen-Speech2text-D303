@@ -1,7 +1,7 @@
 # Bài Thu Hoạch Cá Nhân (Reflection)
 
-- **Họ và Tên**: Lê Văn C
-- **Mã Học Viên**: K4-1027
+- **Họ và Tên**: Đoàn Tiến Thành
+- **Mã Học Viên**: 2A202601222
 - **Vai trò trong nhóm**: QA & User Validation Lead
 - **Hạng mục phụ trách**: Tiến hành User Test CP5 với 3 Willing Users (`validation/feedback_log.md`), Thu thập dữ liệu Mining & Evidence (§1 `spec.md`), Kiểm thử tính năng sản phẩm.
 
