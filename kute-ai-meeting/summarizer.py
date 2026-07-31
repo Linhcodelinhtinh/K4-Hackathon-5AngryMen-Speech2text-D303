@@ -11,14 +11,14 @@ if hasattr(sys.stdout, "reconfigure"):
 # Load environment variables
 load_dotenv()
 
-DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct"
+DEFAULT_MODEL = "openai/gpt-oss-120b"
 DEFAULT_PROVIDER = "openrouter"
 MAX_SINGLE_PASS_CHARS = 12000  # Ngưỡng ký tự để chuyển sang chế độ Chunk Map-Reduce
 
 PROVIDER_MODELS = {
     "groq": {
         "default": "llama-3.3-70b-versatile",
-        "fallbacks": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"]
+        "fallbacks": ["llama-3.3-70b-versatile", "openai/gpt-oss-20b", "mistral-saba-24b"]
     },
     "openrouter": {
         "default": "meta-llama/llama-3.3-70b-instruct",

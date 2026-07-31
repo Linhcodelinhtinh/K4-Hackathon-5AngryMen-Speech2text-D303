@@ -141,7 +141,7 @@ async def manual_note(ctx, *, custom_prompt: str = None):
             raw_transcript,
             provider="groq",
             model_name=None,
-            custom_system_prompt=custom_prompt
+            custom_prompt=custom_prompt
         )
 
         # 3. Phân tách và gửi kết quả theo giới hạn 2000 ký tự Discord
