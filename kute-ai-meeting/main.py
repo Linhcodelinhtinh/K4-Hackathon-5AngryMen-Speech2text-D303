@@ -87,7 +87,7 @@ def main():
     parser = argparse.ArgumentParser(description="Kute AI Meeting: Xử lý MP3 -> STT -> LLM Summary -> Markdown Meeting Notes")
     parser.add_argument("audio_path", nargs="?", help="Đường dẫn tới file ghi âm MP3")
     parser.add_argument("-o", "--output-dir", help="Thư mục lưu kết quả đầu ra (mặc định tạo thư mục cạnh file MP3)")
-    parser.add_argument("-p", "--provider", default="groq", choices=["groq", "openrouter", "gemini"], help="Nhà cung cấp LLM (groq, openrouter, gemini)")
+    parser.add_argument("-p", "--provider", default="groq", choices=["groq", "openrouter", "gemini", "qwen"], help="Nhà cung cấp LLM (groq, openrouter, gemini, qwen)")
     parser.add_argument("-m", "--model", help="Mô hình LLM tùy chỉnh (VD: gemini-2.5-flash, meta-llama/llama-3.3-70b-instruct)")
     
     args = parser.parse_args()

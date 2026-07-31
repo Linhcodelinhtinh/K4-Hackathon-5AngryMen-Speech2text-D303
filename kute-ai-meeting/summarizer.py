@@ -25,14 +25,33 @@ PROVIDER_MODELS = {
         "fallbacks": ["meta-llama/llama-3.3-70b-instruct", "anthropic/claude-3.5-sonnet", "deepseek/deepseek-r1", "google/gemini-2.0-flash-001"]
     },
     "gemini": {
-        "default": "gemini-3.5-flash",
+        "default": "gemini-2.5-flash",
         "fallbacks": ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.5-pro", "gemini-1.5-pro"]
+    },
+    "qwen": {
+        "default": "qwen-plus",
+        "fallbacks": ["qwen-max", "qwen-plus", "qwen2.5-72b-instruct", "qwen-turbo"]
     }
 }
 
+def is_invalid_api_key(key: str) -> bool:
+    if not key or not key.strip():
+        return True
+    k_clean = key.strip().lower()
+    placeholders = [
+        "your_groq_api_key_here", "gsk_your_groq_api_key_here",
+        "your_openrouter_api_key_here", "sk-or-v1-your_openrouter_api_key_here",
+        "your_gemini_api_key_here", "aizasy_your_gemini_api_key_here",
+        "your_dashscope_api_key_here", "your_dashscope_qwen_api_key_here",
+        "sk-your_dashscope_qwen_api_key_here", "your_qwen_api_key_here", "sk-your_qwen_api_key_here"
+    ]
+    if any(p in k_clean for p in ["your_", "placeholder", "xxx"]):
+        return True
+    return k_clean in placeholders
+
 def get_provider_api_key(provider: str = "groq", override_key: str = None) -> str:
     provider = (provider or "groq").lower().strip()
-    if override_key and override_key.strip():
+    if override_key and override_key.strip() and not is_invalid_api_key(override_key):
         key = override_key.strip()
         if provider == "groq":
             os.environ["GROQ_API_KEY"] = key
@@ -40,17 +59,21 @@ def get_provider_api_key(provider: str = "groq", override_key: str = None) -> st
             os.environ["OPENROUTER_API_KEY"] = key
         elif provider == "gemini":
             os.environ["GEMINI_API_KEY"] = key
+        elif provider == "qwen":
+            os.environ["QWEN_API_KEY"] = key
+            os.environ["DASHSCOPE_API_KEY"] = key
         return key
 
     env_map = {
         "groq": "GROQ_API_KEY",
         "openrouter": "OPENROUTER_API_KEY",
-        "gemini": "GEMINI_API_KEY"
+        "gemini": "GEMINI_API_KEY",
+        "qwen": "QWEN_API_KEY"
     }
     env_var = env_map.get(provider, "GROQ_API_KEY")
-    key = os.getenv(env_var)
-    if not key or key.strip() in ["", "your_groq_api_key_here", "gsk_your_groq_api_key_here", "your_openrouter_api_key_here", "your_gemini_api_key_here"]:
-        raise ValueError(f"Thiếu {env_var}. Vui lòng nhập API Key cho provider '{provider}' trên giao diện Web hoặc file .env!")
+    key = os.getenv(env_var) or (os.getenv("DASHSCOPE_API_KEY") if provider == "qwen" else None)
+    if is_invalid_api_key(key):
+        raise ValueError(f"Thiếu {env_var}. Vui lòng nhập API Key cho provider '{provider}' (Qwen Key sk-...) trên giao diện Web hoặc file .env!")
     return key.strip()
 
 def get_groq_client() -> Groq:
@@ -58,7 +81,7 @@ def get_groq_client() -> Groq:
     return Groq(api_key=api_key)
 
 def call_llm_api(messages: list, provider: str = "groq", model_name: str = None, provider_api_key: str = None, temperature: float = 0.3, max_tokens: int = 4096) -> str:
-    """Gọi LLM API tương ứng với Provider (Groq, OpenRouter, Gemini) có tích hợp Fallback."""
+    """Gọi LLM API tương ứng với Provider (Groq, OpenRouter, Gemini, Qwen) có tích hợp Fallback."""
     provider = (provider or "groq").lower().strip()
     api_key = get_provider_api_key(provider, provider_api_key)
 
@@ -125,6 +148,35 @@ def call_llm_api(messages: list, provider: str = "groq", model_name: str = None,
                 if hasattr(response, "text") and response.text:
                     return response.text.strip()
                 return str(response).strip()
+
+            elif provider == "qwen":
+                from openai import OpenAI
+                base_urls = [
+                    os.getenv("QWEN_BASE_URL") or os.getenv("DASHSCOPE_BASE_URL"),
+                    "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                    "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+                ]
+                base_urls = [b for i, b in enumerate(base_urls) if b and b not in base_urls[:i]]
+
+                qwen_last_err = None
+                for b_url in base_urls:
+                    try:
+                        client = OpenAI(base_url=b_url, api_key=api_key)
+                        response = client.chat.completions.create(
+                            model=model,
+                            messages=messages,
+                            temperature=temperature,
+                            max_tokens=max_tokens
+                        )
+                        return response.choices[0].message.content.strip()
+                    except Exception as q_err:
+                        q_err_str = str(q_err).lower()
+                        if "401" in q_err_str or "invalid_api_key" in q_err_str or "incorrect api key" in q_err_str:
+                            qwen_last_err = q_err
+                            continue
+                        raise q_err
+                if qwen_last_err:
+                    raise qwen_last_err
 
             else:
                 raise ValueError(f"Provider '{provider}' không được hỗ trợ!")

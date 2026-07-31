@@ -45,5 +45,17 @@ class TestKuteAIMeetingPipeline(unittest.TestCase):
         self.assertIn("Action Items", summary)
         self.assertIn("|", summary)  # Bảng Markdown Action Items
 
+    def test_qwen_provider_config(self):
+        """Kiểm tra cấu hình provider qwen và validator key."""
+        from summarizer import PROVIDER_MODELS, is_invalid_api_key, get_provider_api_key
+        self.assertIn("qwen", PROVIDER_MODELS)
+        self.assertEqual(PROVIDER_MODELS["qwen"]["default"], "qwen-plus")
+        self.assertTrue(is_invalid_api_key("sk-your_qwen_api_key_here"))
+        self.assertFalse(is_invalid_api_key("sk-abcdef1234567890"))
+
+        key = get_provider_api_key("qwen", override_key="sk-test-valid-qwen-key")
+        self.assertEqual(key, "sk-test-valid-qwen-key")
+        self.assertEqual(os.environ.get("QWEN_API_KEY"), "sk-test-valid-qwen-key")
+
 if __name__ == "__main__":
     unittest.main()

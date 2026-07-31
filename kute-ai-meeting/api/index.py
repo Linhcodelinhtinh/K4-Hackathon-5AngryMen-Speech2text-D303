@@ -107,8 +107,8 @@ async def transcribe_endpoint(
 ):
     """Endpoint Speech-to-Text hỗ trợ tối đa 5 file / max 300MB."""
     try:
-        api_key = provider_api_key or groq_api_key
-        validate_llm_api_key("groq", api_key)
+        stt_key = groq_api_key if (groq_api_key and groq_api_key.startswith("gsk_")) else (provider_api_key if (provider_api_key and provider_api_key.startswith("gsk_")) else None)
+        validate_llm_api_key("groq", stt_key)
         
         files_to_process = audio_files or ([audio_file] if audio_file else [])
         total_mb = validate_audio_files(files_to_process)
@@ -164,8 +164,8 @@ async def summarize_endpoint(req: SummarizeRequest):
     """Endpoint Tóm tắt từ Raw Transcript text (Tự động kích hoạt Map-Reduce nếu text dài)."""
     try:
         p = req.provider or "groq"
-        api_key = req.provider_api_key or req.groq_api_key
-        validate_llm_api_key(p, api_key)
+        llm_key = req.provider_api_key or (req.groq_api_key if (p == "groq" or not (req.groq_api_key and req.groq_api_key.startswith("gsk_"))) else None)
+        validate_llm_api_key(p, llm_key)
 
         if not req.raw_transcript or not req.raw_transcript.strip():
             raise HTTPException(status_code=400, detail="Lỗi 400: 'Văn bản Transcript trống, không thể tóm tắt!'")
@@ -176,7 +176,7 @@ async def summarize_endpoint(req: SummarizeRequest):
             custom_prompt=req.custom_prompt,
             model_name=req.model_name,
             provider=p,
-            provider_api_key=api_key
+            provider_api_key=llm_key
         )
         llm_time = time.time() - llm_start
 
@@ -204,9 +204,11 @@ async def process_meeting_endpoint(
     """
     try:
         p = provider or "groq"
-        api_key = provider_api_key or groq_api_key
-        validate_llm_api_key("groq", api_key if p == "groq" else None) # Groq always needed for Whisper STT
-        validate_llm_api_key(p, api_key)
+        stt_key = groq_api_key if (groq_api_key and groq_api_key.startswith("gsk_")) else (provider_api_key if (provider_api_key and provider_api_key.startswith("gsk_")) else None)
+        llm_key = provider_api_key or (groq_api_key if (p == "groq" or not (groq_api_key and groq_api_key.startswith("gsk_"))) else None)
+
+        validate_llm_api_key("groq", stt_key)
+        validate_llm_api_key(p, llm_key)
 
         files_to_process = audio_files or ([audio_file] if audio_file else [])
         total_mb = validate_audio_files(files_to_process)
@@ -254,7 +256,7 @@ async def process_meeting_endpoint(
             custom_prompt=custom_prompt,
             model_name=model_name,
             provider=p,
-            provider_api_key=api_key
+            provider_api_key=llm_key
         )
         llm_time = time.time() - llm_start
         

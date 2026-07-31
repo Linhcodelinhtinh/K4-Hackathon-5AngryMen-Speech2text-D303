@@ -173,6 +173,12 @@ Structure required:
       { val: 'gemini-1.5-flash', text: 'gemini-1.5-flash' },
       { val: 'gemini-2.5-pro',   text: 'gemini-2.5-pro' },
       { val: 'gemini-1.5-pro',   text: 'gemini-1.5-pro' }
+    ],
+    qwen: [
+      { val: 'qwen-plus', text: 'qwen-plus (Khuyên dùng)' },
+      { val: 'qwen-max', text: 'qwen-max' },
+      { val: 'qwen2.5-72b-instruct', text: 'qwen2.5-72b-instruct' },
+      { val: 'qwen-turbo', text: 'qwen-turbo' }
     ]
   };
 
@@ -186,7 +192,7 @@ Structure required:
       opt.textContent = m.text;
       modelSelect.appendChild(opt);
     });
-    const labels = { openrouter: ['OpenRouter API Key', 'sk-or-v1-...'], gemini: ['Gemini API Key', 'AIzaSy...'], groq: ['Groq API Key', 'gsk_...'] };
+    const labels = { openrouter: ['OpenRouter API Key', 'sk-or-v1-...'], gemini: ['Gemini API Key', 'AIzaSy...'], groq: ['Groq API Key', 'gsk_...'], qwen: ['Qwen API Key', 'sk-...'] };
     const [label, placeholder] = labels[provider] || labels.groq;
     if (apiKeyLabel) apiKeyLabel.innerHTML = `${label} <span class="opt-tag">(tuỳ chọn nếu đã có trong .env)</span>`;
     if (apiKeyInput) apiKeyInput.placeholder = placeholder;
@@ -265,9 +271,19 @@ Structure required:
     const formData = new FormData();
     selectedFiles.forEach(f => formData.append('audio_files', f));
     formData.append('provider', providerSelect?.value || 'groq');
-    if (apiKeyInput?.value.trim()) {
-      formData.append('provider_api_key', apiKeyInput.value.trim());
-      formData.append('groq_api_key', apiKeyInput.value.trim());
+    const inputKey = apiKeyInput ? apiKeyInput.value.trim() : '';
+    if (inputKey) {
+      if (inputKey.startsWith('gsk_')) {
+        formData.append('groq_api_key', inputKey);
+        if (providerSelect && providerSelect.value === 'groq') {
+          formData.append('provider_api_key', inputKey);
+        }
+      } else {
+        formData.append('provider_api_key', inputKey);
+        if (providerSelect && providerSelect.value === 'groq') {
+          formData.append('groq_api_key', inputKey);
+        }
+      }
     }
 
     setTimeout(() => { sttProgressText.textContent = 'Nhận diện giọng nói (Whisper Parallel Chunking)...'; }, 600);
@@ -325,13 +341,30 @@ Structure required:
 
     startTimer(elapsedTimer, 'Thời gian xử lý: ');
 
+    const inputKey = apiKeyInput ? apiKeyInput.value.trim() : '';
+    let providerKey = '';
+    let groqKey = '';
+    if (inputKey) {
+      if (inputKey.startsWith('gsk_')) {
+        groqKey = inputKey;
+        if (providerSelect && providerSelect.value === 'groq') {
+          providerKey = inputKey;
+        }
+      } else {
+        providerKey = inputKey;
+        if (providerSelect && providerSelect.value === 'groq') {
+          groqKey = inputKey;
+        }
+      }
+    }
+
     const payload = {
       raw_transcript:  transcript,
       custom_prompt:   customPromptInput?.value.trim() || '',
       provider:        providerSelect?.value || 'groq',
       model_name:      modelSelect?.value || '',
-      provider_api_key: apiKeyInput?.value.trim() || '',
-      groq_api_key:    apiKeyInput?.value.trim() || ''
+      provider_api_key: providerKey,
+      groq_api_key:    groqKey
     };
 
     try {
