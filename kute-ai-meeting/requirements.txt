@@ -6,6 +6,7 @@ python-dotenv>=1.0.1
 fastapi>=0.110.0
 uvicorn>=0.28.0
 python-multipart>=0.0.9
+pydantic>=2.0.0
 
 # Audio manipulation and large file handling (chunking)
 pydub>=0.25.1
