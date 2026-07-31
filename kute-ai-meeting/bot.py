@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 import discord
 from discord.ext import commands
+from discord.ext import voice_recv
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -33,7 +34,35 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Supported Audio Formats
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac"}
-DISCORD_MSG_LIMIT = 1900  # Margin safe below 2000 chars
+DISCORD_MSG_LIMIT = 1900  # Safe threshold under 2000 chars
+
+# -----------------------------------------------------------------------------
+# HELPER: SAFE MESSAGE SEND WITH RETRY FOR WINERROR 121 / NETWORK TIMEOUTS
+# -----------------------------------------------------------------------------
+async def safe_send(destination, content: str = None, file: discord.File = None, embed: discord.Embed = None):
+    """
+    Gửi tin nhắn hoặc file đính kèm với cơ chế Retry tự động 
+    để khắc phục lỗi WinError 121 (Semaphore Timeout) trên Windows.
+    """
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            kwargs = {}
+            if content:
+                kwargs["content"] = content
+            if file:
+                kwargs["file"] = file
+            if embed:
+                kwargs["embed"] = embed
+                
+            return await destination.send(**kwargs)
+        except (discord.ClientOSError, OSError, asyncio.TimeoutError) as err:
+            print(f"⚠️ [Network Retry] Lỗi kết nối gửi tin nhắn ({err}). Thử lại lần {attempt + 1}/{max_retries}...")
+            if attempt == max_retries - 1:
+                raise err
+            await asyncio.sleep(1.5 * (attempt + 1))
+        except Exception as err:
+            raise err
 
 @bot.event
 async def on_ready():
@@ -42,10 +71,18 @@ async def on_ready():
     print("="*60)
     print("📌 Các lệnh hỗ trợ:")
     print("  └─ !note : Upload file MP3 + tóm tắt cuộc họp")
-    print("  └─ !start: Bot join Voice Channel & ghi âm tự động")
+    print("  └─ !start: Bot join Voice Channel & ghi âm bằng VoiceRecvClient")
     print("  └─ !stop : Dừng ghi âm & tự động tạo Meeting Notes")
     print("  └─ !help_meeting: Hướng dẫn chi tiết")
     print("="*60 + "\n")
+
+# Bắt lỗi CommandNotFound để tránh log rác khi người dùng gõ !!
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        # Bỏ qua lỗi khi gõ lệnh không tồn tại (ví dụ: !!)
+        return
+    print(f"⚠️ [Command Error] {error}")
 
 # -----------------------------------------------------------------------------
 # WORKFLOW 1: MANUAL UPLOAD MODE (!note)
@@ -57,9 +94,12 @@ async def manual_note(ctx, *, custom_prompt: str = None):
     """
     # Kiểm tra file đính kèm
     if not ctx.message.attachments:
-        await ctx.send(
-            "⚠️ **Vui lòng đính kèm 1 file âm thanh MP3/M4A/WAV khi gõ lệnh `!note`!**\n"
-            "Ví dụ: Kéo thả file `cuoc_hop.mp3` vào khung chat Discord và gõ `!note`."
+        await safe_send(
+            ctx.channel,
+            content=(
+                "⚠️ **Vui lòng đính kèm 1 file âm thanh MP3/M4A/WAV khi gõ lệnh `!note`!**\n"
+                "Ví dụ: Kéo thả file `cuoc_hop.mp3` vào khung chat Discord và gõ `!note`."
+            )
         )
         return
 
@@ -67,21 +107,30 @@ async def manual_note(ctx, *, custom_prompt: str = None):
     file_ext = Path(attachment.filename).suffix.lower()
 
     if file_ext not in AUDIO_EXTENSIONS:
-        await ctx.send(f"❌ File `{attachment.filename}` không hợp lệ. Hỗ trợ các định dạng: `{', '.join(AUDIO_EXTENSIONS)}`")
+        await safe_send(
+            ctx.channel,
+            content=f"❌ File `{attachment.filename}` không hợp lệ. Hỗ trợ các định dạng: `{', '.join(AUDIO_EXTENSIONS)}`"
+        )
         return
 
     # Thông báo khởi chạy
-    status_msg = await ctx.send(
-        f"⏳ **Kute AI Meeting**: Đã nhận file `{attachment.filename}` ({(attachment.size/(1024*1024)):.2f} MB).\n"
-        f"🎙️ Đang tiến hành Speech-to-Text & Tóm tắt LLM (vui lòng chờ trong giây lát)..."
+    status_msg = await safe_send(
+        ctx.channel,
+        content=(
+            f"⏳ **Kute AI Meeting**: Đã nhận file `{attachment.filename}` ({(attachment.size/(1024*1024)):.2f} MB).\n"
+            f"🎙️ Đang tải file và tiến hành Speech-to-Text & Tóm tắt LLM (vui lòng chờ trong giây lát)..."
+        )
     )
 
-    # Tải file đính kèm về temporary file
+    # Tải file về đĩa cứng sử dụng attachment.read() để tránh nghẽn socket WinError 121
     with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp_file:
         tmp_audio_path = tmp_file.name
 
     try:
-        await attachment.save(tmp_audio_path)
+        # Tải mảng bytes về memory và ghi trực tiếp ra đĩa
+        file_bytes = await attachment.read()
+        with open(tmp_audio_path, "wb") as f:
+            f.write(file_bytes)
 
         # 1. Non-blocking Speech-to-Text (chạy bằng asyncio.to_thread)
         raw_transcript = await asyncio.to_thread(transcribe_audio, tmp_audio_path)
@@ -98,10 +147,21 @@ async def manual_note(ctx, *, custom_prompt: str = None):
         # 3. Phân tách và gửi kết quả theo giới hạn 2000 ký tự Discord
         await send_meeting_notes_to_channel(ctx.channel, meeting_notes, raw_transcript, attachment.filename)
 
-        await status_msg.edit(content=f"✅ **Kute AI Meeting**: Đã hoàn thành tóm tắt cuộc họp cho file `{attachment.filename}`!")
+        if status_msg:
+            try:
+                await status_msg.edit(content=f"✅ **Kute AI Meeting**: Đã hoàn thành tóm tắt cuộc họp cho file `{attachment.filename}`!")
+            except Exception:
+                pass
 
     except Exception as e:
-        await status_msg.edit(content=f"❌ **Đã xảy ra lỗi trong quá trình xử lý**: {str(e)}")
+        err_msg = f"❌ **Đã xảy ra lỗi trong quá trình xử lý**: {str(e)}"
+        if status_msg:
+            try:
+                await status_msg.edit(content=err_msg)
+            except Exception:
+                await safe_send(ctx.channel, content=err_msg)
+        else:
+            await safe_send(ctx.channel, content=err_msg)
     finally:
         if os.path.exists(tmp_audio_path):
             os.remove(tmp_audio_path)
@@ -112,36 +172,43 @@ async def manual_note(ctx, *, custom_prompt: str = None):
 @bot.command(name="start", aliases=["join", "ghiam"])
 async def start_recording_cmd(ctx):
     """
-    Workflow 2: Bot tham gia Voice Channel và ghi âm cuộc họp
+    Workflow 2: Bot tham gia Voice Channel và ghi âm cuộc họp bằng VoiceRecvClient
     """
     if not ctx.author.voice or not ctx.author.voice.channel:
-        await ctx.send("⚠️ Bạn phải tham gia vào một **Voice Channel (Kênh thoại)** trước khi sử dụng lệnh `!start`!")
+        await safe_send(ctx.channel, content="⚠️ Bạn phải tham gia vào một **Voice Channel (Kênh thoại)** trước khi sử dụng lệnh `!start`!")
         return
 
     voice_channel = ctx.author.voice.channel
     guild_id = ctx.guild.id
 
     if voice_recorder.is_recording(guild_id):
-        await ctx.send("⚠️ Bot đang trong một phiên ghi âm cuộc họp tại phòng thoại khác!")
+        await safe_send(ctx.channel, content="⚠️ Bot đang trong một phiên ghi âm cuộc họp tại phòng thoại khác!")
         return
 
-    # Kết nối tới Voice Channel
+    # Kết nối tới Voice Channel sử dụng VoiceRecvClient từ discord-ext-voice-recv
     try:
         if ctx.voice_client:
             voice_client = ctx.voice_client
-            await voice_client.move_to(voice_channel)
+            if not isinstance(voice_client, voice_recv.VoiceRecvClient):
+                await voice_client.disconnect()
+                voice_client = await voice_channel.connect(cls=voice_recv.VoiceRecvClient)
+            else:
+                await voice_client.move_to(voice_channel)
         else:
-            voice_client = await voice_channel.connect()
+            voice_client = await voice_channel.connect(cls=voice_recv.VoiceRecvClient)
     except Exception as e:
-        await ctx.send(f"❌ Không thể kết nối tới kênh thoại: {e}")
+        await safe_send(ctx.channel, content=f"❌ Không thể kết nối tới kênh thoại: {e}")
         return
 
-    # Khởi tạo tiến trình ghi âm
+    # Khởi tạo tiến trình ghi âm với AudioSink
     recording_path = voice_recorder.start_voice_recording(guild_id, voice_channel.id, voice_client)
 
-    await ctx.send(
-        f"🎙️ **Kute AI Meeting**: Bot đã kết nối tới kênh thoại **{voice_channel.name}** và bắt đầu ghi âm cuộc họp!\n"
-        f"💡 Khi kết thúc cuộc họp, hãy gõ `!stop` (hoặc Bot sẽ tự động dừng nếu mọi người rời phòng)."
+    await safe_send(
+        ctx.channel,
+        content=(
+            f"🎙️ **Kute AI Meeting**: Bot đã kết nối tới kênh thoại **{voice_channel.name}** và bắt đầu ghi âm cuộc họp!\n"
+            f"💡 Khi kết thúc cuộc họp, hãy gõ `!stop` (hoặc Bot sẽ tự động dừng nếu mọi người rời phòng)."
+        )
     )
 
 @bot.command(name="stop", aliases=["leave", "ketthuc"])
@@ -152,7 +219,7 @@ async def stop_recording_cmd(ctx):
     guild_id = ctx.guild.id
 
     if not voice_recorder.is_recording(guild_id):
-        await ctx.send("⚠️ Hiện không có cuộc họp nào đang được ghi âm!")
+        await safe_send(ctx.channel, content="⚠️ Hiện không có cuộc họp nào đang được ghi âm!")
         return
 
     await process_and_finish_meeting(ctx.guild, ctx.channel, ctx.voice_client)
@@ -166,15 +233,22 @@ async def process_and_finish_meeting(guild: discord.Guild, text_channel: discord
 
     # Disconnect khỏi kênh thoại
     if voice_client and voice_client.is_connected():
-        await voice_client.disconnect()
+        try:
+            await voice_client.disconnect()
+        except Exception as e:
+            print(f"⚠️ Lỗi disconnect voice: {e}")
 
-    status_msg = await text_channel.send(
-        "⏹️ **Kute AI Meeting**: Đã dừng ghi âm cuộc họp và ngắt kết nối kênh thoại.\n"
-        "⚡ Đang tiến hành Speech-to-Text và LLM Tóm tắt cuộc họp..."
+    status_msg = await safe_send(
+        text_channel,
+        content=(
+            "⏹️ **Kute AI Meeting**: Đã dừng ghi âm cuộc họp và ngắt kết nối kênh thoại.\n"
+            "⚡ Đang tiến hành Speech-to-Text và LLM Tóm tắt cuộc họp..."
+        )
     )
 
     if not audio_path or not os.path.exists(audio_path):
-        await status_msg.edit(content="❌ Không tìm thấy file âm thanh cuộc họp ghi âm được!")
+        if status_msg:
+            await status_msg.edit(content="❌ Không tìm thấy file âm thanh cuộc họp ghi âm được!")
         return
 
     try:
@@ -186,10 +260,15 @@ async def process_and_finish_meeting(guild: discord.Guild, text_channel: discord
 
         # Gửi kết quả lên Channel
         await send_meeting_notes_to_channel(text_channel, meeting_notes, raw_transcript, "Voice_Recording.wav")
-        await status_msg.edit(content="🎉 **Kute AI Meeting**: Biên bản cuộc họp đã được tạo thành công!")
+        if status_msg:
+            await status_msg.edit(content="🎉 **Kute AI Meeting**: Biên bản cuộc họp đã được tạo thành công!")
 
     except Exception as e:
-        await status_msg.edit(content=f"❌ Lỗi xử lý biên bản cuộc họp: {str(e)}")
+        err_msg = f"❌ Lỗi xử lý biên bản cuộc họp: {str(e)}"
+        if status_msg:
+            await status_msg.edit(content=err_msg)
+        else:
+            await safe_send(text_channel, content=err_msg)
     finally:
         if audio_path and os.path.exists(audio_path):
             os.remove(audio_path)
@@ -199,21 +278,16 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
     """
     Tự động phát hiện khi phòng thoại trống (chỉ còn lại Bot) -> tự động dừng ghi âm và tạo Meeting Notes
     """
-    # Nếu member thay đổi kênh thoại
     if before.channel and before.channel != after.channel:
         channel = before.channel
         guild = channel.guild
         voice_client = guild.voice_client
 
-        # Kiểm tra Bot có trong kênh thoại này và đang ghi âm hay không
         if voice_client and voice_client.channel == channel and voice_recorder.is_recording(guild.id):
-            # Đếm số người dùng thật trong kênh (trừ bot)
             human_members = [m for m in channel.members if not m.bot]
             if len(human_members) == 0:
                 print(f"👥 Kênh thoại {channel.name} không còn thành viên. Tự động ngắt kết nối & tạo Meeting Notes...")
                 
-                # Tìm Text Channel phù hợp để gửi tin nhắn
-                session = voice_recorder.get_recording_session(guild.id)
                 target_text_channel = None
                 for c in guild.text_channels:
                     if c.permissions_for(guild.me).send_messages:
@@ -221,7 +295,7 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
                         break
 
                 if target_text_channel:
-                    await target_text_channel.send(f"📢 **Phòng thoại `{channel.name}` đã trống.** Bot tự động kết thúc cuộc họp và tạo biên bản...")
+                    await safe_send(target_text_channel, content=f"📢 **Phòng thoại `{channel.name}` đã trống.** Bot tự động kết thúc cuộc họp và tạo biên bản...")
                     await process_and_finish_meeting(guild, target_text_channel, voice_client)
 
 # -----------------------------------------------------------------------------
@@ -232,10 +306,8 @@ async def send_meeting_notes_to_channel(channel, meeting_notes: str, raw_transcr
     Xử lý gửi kết quả tuân thủ giới hạn 2000 ký tự của Discord.
     """
     if len(meeting_notes) <= DISCORD_MSG_LIMIT:
-        # Nội dung ngắn: gửi trực tiếp
-        await channel.send(f"📋 **MEETING NOTES** ({original_filename}):\n\n{meeting_notes}")
+        await safe_send(channel, content=f"📋 **MEETING NOTES** ({original_filename}):\n\n{meeting_notes}")
     else:
-        # Nội dung dài: tạo file Meeting_Notes.md đính kèm + trích đoạn preview
         preview_text = meeting_notes[:800] + "\n\n...(Xem toàn bộ nội dung trong file đính kèm bên dưới)..."
         
         with tempfile.NamedTemporaryFile(suffix=".md", delete=False, mode="w", encoding="utf-8") as md_file:
@@ -244,7 +316,8 @@ async def send_meeting_notes_to_channel(channel, meeting_notes: str, raw_transcr
 
         try:
             discord_file = discord.File(md_path, filename=f"Meeting_Notes_{Path(original_filename).stem}.md")
-            await channel.send(
+            await safe_send(
+                channel,
                 content=f"📋 **MEETING NOTES (File đính kèm)** - `{original_filename}`:\n\n{preview_text}",
                 file=discord_file
             )
@@ -271,7 +344,7 @@ async def help_meeting_cmd(ctx):
         inline=False
     )
     embed.set_footer(text="Powered by Groq Whisper Large V3 & Llama 3.3 70B")
-    await ctx.send(embed=embed)
+    await safe_send(ctx.channel, embed=embed)
 
 def main():
     token = os.getenv("DISCORD_BOT_TOKEN")
