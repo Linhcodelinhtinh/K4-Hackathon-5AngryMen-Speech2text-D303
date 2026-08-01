@@ -1,7 +1,7 @@
 # Bài Thu Hoạch Cá Nhân (Reflection)
 
 - **Họ và Tên**: Lưu Quang Linh
-- **Mã Học Viên**: K4-1024
+- **Mã Học Viên**: 2A202601084
 - **Vai trò trong nhóm**: Group Leader / Backend Developer & System Architect
 - **Hạng mục phụ trách**: `spec.md`, Kiến trúc FastAPI Backend (`codebase/api/index.py`), Parallel Audio Chunking (`codebase/stt_service.py`), Serverless Vercel Deployment.
 
