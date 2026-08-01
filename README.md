@@ -13,8 +13,8 @@
 
 | Mã HV | Họ và Tên | Vai trò | Phân công nhiệm vụ chi tiết |
 |---|---|---|---|
-| **K4-1024** | **Lưu Quang Linh** | **Group Leader** | Viết `spec.md`, thiết kế Kiến trúc Backend FastAPI (`codebase/api/index.py`), Parallel Audio Chunking (`codebase/stt_service.py`), Deploy Vercel. |
-| **K4-1025** | **Nguyễn Văn A** | **AI Prompt Engineer** | Thiết kế & Tối ưu LLM Prompts (Map-Reduce & Sửa lỗi thuật ngữ Jargon in `codebase/summarizer.py`), Xây dựng bộ Golden Set 20 cases (`eval/`). |
+| **2A202601084** | **Lưu Quang Linh** | **Group Leader** | Viết `spec.md`, thiết kế Kiến trúc Backend FastAPI (`codebase/api/index.py`), Parallel Audio Chunking (`codebase/stt_service.py`), Deploy Vercel. |
+| **2A2026** | **Nguyễn Văn A** | **AI Prompt Engineer** | Thiết kế & Tối ưu LLM Prompts (Map-Reduce & Sửa lỗi thuật ngữ Jargon in `codebase/summarizer.py`), Xây dựng bộ Golden Set 20 cases (`eval/`). |
 | **K4-1026** | **Trần Thị B** | **Frontend Developer** | Phát triển UI/UX Web SPA (`codebase/public/`), Drag & Drop Multi-file Upload, Export Markdown/Slack/PDF, Session Restore. |
 | **K4-1027** | **Lê Văn C** | **QA & Validation Lead** | Tiến hành vòng User Validation CP5 với 3 Willing Users, tổng hợp log phản hồi & đánh giá chỉ số (`validation/`). |
 | **K4-1028** | **Phạm Văn D** | **Demo & Product Pitcher** | Soạn slide thuyết trình 6 trang (`demo-slides.pdf`), quay video Demo sản phẩm và chuẩn bị kịch bản Pitching CP6. |
